@@ -13,8 +13,8 @@ internal static class AddonProjection
         var diagnostics = new List<string>();
         var batch = new ImportBatch(source with { RawJson = DataJson.Write(RawData.Preserve(raw)), Diagnostics = diagnostics });
         CharacterIdentity Character(CharacterReference c) => new(World(c.Server, c.SourceAccountId), c.Account, c.Id, c.Name);
-        string World(string server, string? qualified = null) => !string.IsNullOrWhiteSpace(server) ? server
-            : defaultServer ?? "unresolved:" + (qualified ?? source.Key);
+        string World(string server, string? qualified = null) => NormalizeWorld(!string.IsNullOrWhiteSpace(server) ? server
+            : defaultServer ?? "unresolved:" + (qualified ?? source.Key));
         switch (provider)
         {
             case "inventory":
@@ -24,6 +24,8 @@ internal static class AddonProjection
                 diagnostics.AddRange(data.Diagnostics);
                 if (provider == "inventory" && raw.Table("IIFA_DATABASE") is null)
                     throw new FormatException("Inventory root is missing; previous import retained.");
+                if (provider == "character-observations" && raw.Table("uespLogSavedVars") is null)
+                    throw new FormatException("uespLog root is missing; previous import retained.");
                 foreach (var c in data.Characters) batch.Characters.Add(new(Character(c)));
                 foreach (var state in data.CharacterStates)
                 {
@@ -87,7 +89,7 @@ internal static class AddonProjection
                 foreach (var account in world.Value.Tables())
                 foreach (var entry in account.Value.Table("$AccountWide")?.Table("charData")?.Tables() ?? [])
                 {
-                    var c = new CharacterIdentity(world.Key.Value, account.Key.Value, entry.Key.Value,
+                    var c = new CharacterIdentity(World(world.Key.Value), account.Key.Value, entry.Key.Value,
                         entry.Value.String("$lastCharacterName") ?? entry.Value.String("$LastCharacterName"));
                     batch.Characters.Add(new(c));
                     batch.Records.Add(new("character_metadata", c.Key, c.Key, c.Server, c.Account, c.Name, null, DataJson.Write(RawData.Details(entry.Value))));
@@ -97,7 +99,7 @@ internal static class AddonProjection
             case "collections":
                 foreach (var collection in SetCollectionReader.Parse(raw, info).Accounts)
                     batch.Records.Add(new("collection", Identity.Key(collection.Server, collection.Account), null,
-                        collection.Server, collection.Account, "Set collection", collection.ObservedAt,
+                        World(collection.Server), collection.Account, "Set collection", collection.ObservedAt,
                         DataJson.Write(new { collection.SetMasks, Meaning = "36-bit collection slot masks; piece metadata is required to resolve slots." })));
                 break;
             case "crafting-queue":
@@ -118,11 +120,17 @@ internal static class AddonProjection
                 {
                     var name = world.Value.Table("CharIdToName")?.Get(entry.Key) as string;
                     var isCharacter = name is not null;
-                    var c = isCharacter ? new CharacterIdentity(world.Key.Value, account.Key.Value, entry.Key.Value, name) : null;
+                    var c = isCharacter ? new CharacterIdentity(World(world.Key.Value), account.Key.Value, entry.Key.Value, name) : null;
                     batch.Records.Add(new("storage_metadata", Identity.Key(world.Key.Value, account.Key.Value, entry.Key.Value), c?.Key,
-                        world.Key.Value, account.Key.Value, name ?? entry.Key.Value, null, DataJson.Write(RawData.Details(entry.Value))));
+                        World(world.Key.Value), account.Key.Value, name ?? entry.Key.Value, null, DataJson.Write(RawData.Details(entry.Value))));
                 }
             }
         }
     }
+    private static string NormalizeWorld(string world) => world.Trim().ToUpperInvariant() switch
+    {
+        "EU MEGASERVER" or "EU" => "EU",
+        "NA MEGASERVER" or "NA" => "NA",
+        _ => world
+    };
 }
