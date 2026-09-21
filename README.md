@@ -7,7 +7,7 @@
 > [!WARNING]
 > Created with substantial help from **OpenAI Codex** and tested against my own use cases. Please do not treat this project as a measure of my abilities as a developer, for better or worse.
 
-A local **.NET 10** MCP server for Elder Scrolls Online. It lets an AI assistant query your characters, account inventory, crafting knowledge and saved builds from SQLite. An explicit refresh reads addon files using [EsoData.NET](https://github.com/JuliusJacobsohn/EsoData.NET).
+A local **.NET 10** MCP server for Elder Scrolls Online. It lets an AI assistant query your characters, account inventory, crafting knowledge and saved builds from SQLite. Before each database-backed tool call, changed addon files are automatically imported using [EsoData.NET](https://github.com/JuliusJacobsohn/EsoData.NET).
 
 No hosted service, account signup, SQL Server, game injection or custom ESO addon is needed. Your data stays on your computer; no account data or game catalog is distributed in this repository.
 
@@ -15,13 +15,13 @@ No hosted service, account signup, SQL Server, game injection or custom ESO addo
 
 ```text
 SavedVariables + installed catalogs
-                │ explicit refresh
+                │ refresh changed files before queries
          EsoData.NET → Import
                 │
               SQLite ← MCP queries
 ```
 
-Query tools use the database only. They still work after the source files become unavailable. The MCP tool classes know nothing about addon file layouts; only the import project references the parsing library.
+A shared request handler refreshes sources before database-backed tools run; the tools themselves use SQLite only. Content hashes skip unchanged files. Queries still work after sources become unavailable, using their last successful imports. The MCP tool classes know nothing about addon file layouts; only the import project references the parsing library.
 
 SQLite retains the complete parsed inputs, including fields not yet modeled, plus searchable projections and timestamps. Lua tables preserve numeric versus string keys and sparse indices. Unknown game IDs are retained rather than rejected. The database is the latest successful import per source, **not a history of every game session**.
 
@@ -31,12 +31,11 @@ SQLite retains the complete parsed inputs, including fields not yet modeled, plu
 2. Download `eso-mcp-portable.zip` from [Releases](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases), extract it to a stable directory, and keep the entire directory together.
 3. Copy `settings.example.json` to a private `settings.json` and replace its paths with yours. Use absolute paths. Add more `locations` for other local saved-data directories, or `catalogPaths` for external EsoData.NET catalog JSON files.
 4. In ESO, visit the characters/storage you want the addons to observe, then `/reloadui` or log out normally to save their data.
-5. Import once and register the server in your MCP client.
+5. Register the server in your MCP client. Its first data query imports your sources automatically.
 
 Example PowerShell, assuming the release is extracted to `C:/Tools/EsoMcp`:
 
 ```powershell
-dotnet C:/Tools/EsoMcp/eso-mcp.dll --config C:/Tools/EsoMcp/settings.json --refresh
 codex mcp add eso -- dotnet C:/Tools/EsoMcp/eso-mcp.dll --config C:/Tools/EsoMcp/settings.json
 codex mcp get eso
 ```
@@ -54,16 +53,16 @@ Start a new Codex session or restart the app if an existing session does not dis
 }
 ```
 
-Without `--config`, Windows defaults to the standard Documents/ESO/live folders and a database at `%LOCALAPPDATA%/EsoMcp/data.db`. On other platforms, provide paths to your locally accessible game data. Startup does **not** refresh automatically. With `--config`, only the locations you explicitly list are used. An empty `locations`/`catalogPaths` configuration or `--database-only` serves an existing database without import inputs.
+Without `--config`, Windows defaults to the standard Documents/ESO/live folders and a database at `%LOCALAPPDATA%/EsoMcp/data.db`. On other platforms, provide paths to your locally accessible game data. Database-backed tool calls automatically refresh first, including `database_status` and `export_saved_build`. Protocol initialization/tool discovery and the standalone crafting-link encoder do not trigger imports. With `--config`, only the locations you explicitly list are used. Set `"autoRefresh": false` or pass `--no-auto-refresh` to refresh only on explicit requests. An empty `locations`/`catalogPaths` configuration or `--database-only` serves an existing database without import inputs.
 
-The server uses stdio: the MCP client launches it as needed, and stdout carries only protocol messages. `--refresh`, `--status` and `--help` are standalone commands that print output and exit. `--refresh` exits with code 1 if a source fails; absent optional addon files are reported as `missing` without failing the command.
+The server uses stdio: the MCP client launches it as needed, and stdout carries only protocol messages. `--refresh`, `--status` and `--help` are standalone commands that print output and exit. CLI `--status` reads the existing database without refreshing; MCP `database_status` uses the automatic refresh setting. `--refresh` exits with code 1 if a source fails; absent optional addon files are reported as `missing` without failing the command.
 
 ## Available tools
 
 | Tool | Purpose |
 |---|---|
 | `database_status` | Counts, source paths, save/import times, diagnostics and refresh outcomes |
-| `refresh_database` | Explicitly read configured sources; `force: true` reprojects unchanged files |
+| `refresh_database` | Optional manual refresh; `force: true` reprojects unchanged files |
 | `list_characters` | Names and identities, filterable by name/account/server |
 | `search_inventory` | Owned stacks across characters and storage; filter by item/set/location owner |
 | `get_knowledge` | Recipe, plan, motif, grimoire and script knowledge, including unknown results |
@@ -79,7 +78,7 @@ List/search tools use `offset` and `limit` (1–200) and return `hasMore`. Chara
 
 Example requests to an assistant:
 
-- “Refresh my ESO database and show me which characters are available.”
+- “Show me which ESO characters are available.”
 - “Find the crafter's known recipes and research records.”
 - “Find this set, then show all owned pieces on my account, including the bank.”
 - “Export my saved tank build for CSPS.”
@@ -107,6 +106,7 @@ LibSets supplies set membership, not complete crafting-piece/trait definitions o
 ## Refresh and freshness
 
 - Saves are **last written disk data**, not live game memory. Source timestamps and observation timestamps are kept separately.
+- Automatic refresh checks every configured source before each database-backed tool call. Only changed contents are reimported. The manual refresh tool runs once, without a redundant automatic refresh, and accepts `force: true` when needed.
 - Each changed source is replaced transactionally. A malformed, unavailable or changing file leaves its previous successful import intact; inspect `database_status` for failures/staleness. There is no silent clearing of missing sources.
 - Content hashes skip unchanged sources. Run `refresh_database(force: true)` after upgrading the importer or changing world mappings to reprocess unchanged data.
 - Queries prefer one inventory source per account/server (inventory addon first, then newest source at equal priority) to avoid summing duplicate observations. `includeAlternateSources: true` exposes all sources for comparison; do not sum them together. This preference is per account, so secondary-only locations may require that option.
@@ -124,7 +124,7 @@ python scripts/smoke_mcp.py
 dotnet publish src/EsoMcp.Server -c Release -o artifacts/server -p:UseAppHost=false
 ```
 
-The SDK is .NET 10; the protocol smoke test uses Python 3's standard library. Tests use synthetic inputs and temporary databases. The smoke test starts the actual server, initializes MCP, discovers/calls every tool, checks invalid requests, and verifies queries still work after removing a source. An explicit `--live-database` mode is available for local integration checks; it imports only paths supplied by the operator and never writes game files.
+The SDK is .NET 10; the protocol smoke test uses Python 3's standard library. Tests use synthetic inputs and temporary databases. The smoke test starts the actual server, initializes MCP, discovers/calls every tool, and checks invalid requests. It verifies that a normal query imports initial/changed files automatically, malformed or missing files retain previous data, and manual mode defers imports until requested. An explicit `--live-database` mode is available for local integration checks; it imports only paths supplied by the operator and never writes game files.
 
 | Project | Responsibility |
 |---|---|
