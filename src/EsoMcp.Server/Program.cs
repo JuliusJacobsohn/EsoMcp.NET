@@ -24,7 +24,14 @@ try
     builder.Services.AddSingleton(database);
     builder.Services.AddSingleton<IRefreshService>(importer);
     builder.Services.AddSingleton<IGameExports, GameExports>();
-    builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<DatabaseTools>().WithTools<ExportTools>();
+    builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<DatabaseTools>().WithTools<ExportTools>()
+        .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, cancellationToken) =>
+        {
+            // Refresh once before database-backed tools; tool implementations remain database-only.
+            if (settings.AutoRefresh && request.Params?.Name is not ("refresh_database" or "create_crafting_import"))
+                await request.Services!.GetRequiredService<IRefreshService>().RefreshAsync(cancellationToken: cancellationToken);
+            return await next(request, cancellationToken);
+        }));
     await builder.Build().RunAsync();
     return 0;
 }

@@ -97,6 +97,9 @@ def main():
             client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             tools = client.request("tools/list")["tools"]
             assert len(tools) == 12, [t["name"] for t in tools]
+            # A normal query must populate an empty database without an explicit refresh.
+            characters = client.call("list_characters")
+            assert characters["rows"], characters
             result = client.call("refresh_database", {"force": True})
             assert not any(s["status"] == "failed" for s in result["sources"]), result
             status = client.call("database_status")
@@ -118,7 +121,31 @@ def main():
             client.call("list_characters", {"limit": 1000}, expect_error=True)
             client.call("get_record", {"recordKey": "does-not-exist"}, expect_error=True)
             if not args.live_database:
-                (saved / "CarosSkillPointSaver.lua").unlink()
+                source = saved / "CarosSkillPointSaver.lua"
+                changed = source.read_text(encoding="utf-8").replace("Synthetic Character", "Updated Character")
+                source.write_text(changed, encoding="utf-8")
+                characters = client.call("list_characters")
+                assert characters["rows"][0]["name"] == "Updated Character"
+                # A broken disk save must not prevent queries of the last good data.
+                source.write_text("CSPSSavedVariables = {", encoding="utf-8")
+                assert client.call("list_characters")["rows"] == characters["rows"]
+                attempts = client.call("database_status")["lastRefresh"]
+                assert any(s["label"] == "builds" and s["status"] == "failed" for s in attempts)
+                source.write_text(changed, encoding="utf-8")
+                # Manual mode leaves cached data alone until explicitly refreshed.
+                manual = McpClient(command + ["--no-auto-refresh"])
+                try:
+                    manual.request("initialize", {"protocolVersion": "2025-11-25", "capabilities": {},
+                                                  "clientInfo": {"name": "manual-mode-test", "version": "1.0"}})
+                    manual.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+                    source.write_text(changed.replace("Updated Character", "Manual Character"), encoding="utf-8")
+                    assert manual.call("list_characters")["rows"][0]["name"] == "Updated Character"
+                    manual.call("refresh_database")
+                    assert manual.call("list_characters")["rows"][0]["name"] == "Manual Character"
+                finally:
+                    manual.close()
+                characters = client.call("list_characters")
+                source.unlink()
                 assert client.call("list_characters")["rows"] == characters["rows"]
             print(json.dumps({"protocol": initialized["protocolVersion"], "tools": len(tools),
                               "counts": status["counts"], "result": "passed"}))

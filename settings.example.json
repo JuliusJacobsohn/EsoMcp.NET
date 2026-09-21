@@ -1,5 +1,6 @@
 {
   "databasePath": "C:/Users/YOUR_USER/AppData/Local/EsoMcp/data.db",
+  "autoRefresh": true,
   "locations": [
     {
       "savedVariablesPath": "C:/Users/YOUR_USER/Documents/Elder Scrolls Online/live/SavedVariables",

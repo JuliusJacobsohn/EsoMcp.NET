@@ -10,6 +10,7 @@ public sealed class ServerSettings
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EsoMcp", "data.db");
     public List<ImportLocation> Locations { get; set; } = [];
     public List<string> CatalogPaths { get; set; } = [];
+    public bool AutoRefresh { get; set; } = true;
 
     public static (ServerSettings Settings, string Mode) Parse(string[] args)
     {
@@ -17,7 +18,7 @@ public sealed class ServerSettings
         for (var i = 0; i < args.Length; i++)
         {
             var key = args[i];
-            if (key is "--help" or "--refresh" or "--status" or "--database-only") flags.Add(key, null);
+            if (key is "--help" or "--refresh" or "--status" or "--database-only" or "--no-auto-refresh") flags.Add(key, null);
             else if (key is "--config" or "--database" or "--saved-variables" or "--addons" or "--server")
             {
                 if (++i >= args.Length || args[i].StartsWith("--", StringComparison.Ordinal))
@@ -44,6 +45,7 @@ public sealed class ServerSettings
             settings.Locations = [new(Path.Combine(live, "SavedVariables"), Path.Combine(live, "AddOns"))];
         }
         if (flags.ContainsKey("--database-only")) { settings.Locations = []; settings.CatalogPaths = []; }
+        if (flags.ContainsKey("--no-auto-refresh")) settings.AutoRefresh = false;
         ArgumentException.ThrowIfNullOrWhiteSpace(settings.DatabasePath);
         if (settings.Locations is null || settings.CatalogPaths is null)
             throw new ArgumentException("locations and catalogPaths must be arrays, not null.");
@@ -52,13 +54,14 @@ public sealed class ServerSettings
 
     public const string Help = """
         EsoMcp.NET — local ESO database and MCP server (.NET 10)
-        No arguments: serve MCP over stdio; queries read SQLite only.
+        No arguments: serve MCP over stdio; refresh changed sources before database-backed tools.
           --config FILE          JSON with databasePath, locations, catalogPaths
           --database FILE        SQLite file (default: local application data/EsoMcp/data.db)
           --saved-variables DIR  One SavedVariables directory; overrides configured locations
           --addons DIR           Optional AddOns directory for its installed LibSets catalog
           --server NAME          Optional world for observations without a world identifier
           --database-only        Disable all refresh inputs; keep existing database queryable
+          --no-auto-refresh      Refresh only on explicit requests (config: autoRefresh=false)
           --refresh              Import configured sources, print JSON, exit (1 if any failed)
           --status               Print database status as JSON, exit
           --help                 Print this help

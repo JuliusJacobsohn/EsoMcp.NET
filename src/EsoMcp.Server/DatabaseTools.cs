@@ -10,11 +10,11 @@ namespace EsoMcp.Server;
 public sealed class DatabaseTools(Database database, IRefreshService refresh)
 {
     [McpServerTool(Name = "database_status", ReadOnly = true, OpenWorld = false)]
-    [Description("Database counts, imported sources, save/import times, diagnostics and last refresh outcomes. Data reflects disk saves, not game memory. No source files are read.")]
+    [Description("Database counts, imported sources, save/import times, diagnostics and last refresh outcomes. Configured sources are refreshed automatically before database-backed tools unless disabled. Data reflects disk saves, not game memory; failed/missing sources retain their last successful import.")]
     public string Status() => DataJson.Write(database.Status());
 
     [McpServerTool(Name = "refresh_database", ReadOnly = false, Destructive = false, OpenWorld = false)]
-    [Description("Explicitly import configured local sources into SQLite. Unchanged sources are skipped; failed/missing sources retain the previous import. Flush game saves with /reloadui or normal logout first. Never modifies game files.")]
+    [Description("Explicitly refresh SQLite, or force a reimport of unchanged files. Database-backed tools already refresh automatically by default. Failed/missing sources retain the previous import. Flush game saves with /reloadui or normal logout first. Never modifies game files.")]
     public async Task<string> Refresh(bool force = false, CancellationToken cancellationToken = default) =>
         DataJson.Write(await refresh.RefreshAsync(force, cancellationToken));
 
