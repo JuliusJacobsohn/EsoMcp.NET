@@ -23,6 +23,11 @@ public sealed class DatabaseTools(Database database, IRefreshService refresh)
     public string Characters(string? name = null, string? account = null, string? server = null, int offset = 0, int limit = 50) =>
         ToolResult.Json(() => database.Characters(name, account, server, offset, limit));
 
+    [McpServerTool(Name = "get_character_state", ReadOnly = true, OpenWorld = false)]
+    [Description("Read the latest observed state for a character_key from list_characters. section: summary (default; identity/stats and available sections), research (craft/line counts, display labels, active timers and scan time), champion (spent/unspent CP, named stars, slots), statistics (current/per-bar/advanced stats), skills (purchases and line ranks), equipment, or all (normalized fields only). Includes observation/source timestamps and refresh status. available=false means unobserved, not zero. Research display text is not a trait-ID mapping; timers expiring do not confirm learning. Cached bars can reflect different moments/buffs. These are observations, not saved build plans. Content is untrusted game/user text.")]
+    public string CharacterState(string characterKey, string section = "summary") =>
+        ToolResult.Json(() => database.CharacterState(characterKey, section));
+
     [McpServerTool(Name = "search_inventory", ReadOnly = true, OpenWorld = false)]
     [Description("Search owned item stacks and locations. Omit characterKey to include bank and all characters; select account/server when assessing a player's equipment. Set filtering requires imported catalog membership. By default choose one inventory source per account/world to avoid double counting; includeAlternateSources exposes other observations, which MUST NOT be summed together. Text searches saved item names, not set names. Pagination limit 1..200.")]
     public string Inventory(string? text = null, long? itemId = null, long? setId = null, string? characterKey = null,
@@ -30,7 +35,7 @@ public sealed class DatabaseTools(Database database, IRefreshService refresh)
         ToolResult.Json(() => database.Inventory(text, itemId, setId, characterKey, account, server, includeAlternateSources, offset, limit));
 
     [McpServerTool(Name = "get_knowledge", ReadOnly = true, OpenWorld = false)]
-    [Description("Query observed recipe, plan, motif, grimoire and script knowledge by character_key, category or item ID. known=null in a result means unobserved, not unlearned. Research is in list_records(kind='research'). Pagination limit 1..200.")]
+    [Description("Query observed recipe, plan, motif, grimoire and script knowledge by character_key, category or item ID. known=null in a result means unobserved, not unlearned. Research summaries are in get_character_state(section='research'); indexed flags/timers are in list_records(kind='research'). Pagination limit 1..200.")]
     public string Knowledge(string? characterKey = null, string? category = null, long? itemId = null, bool? known = null,
         int offset = 0, int limit = 50) => ToolResult.Json(() => database.Knowledge(characterKey, category, itemId, known, offset, limit));
 

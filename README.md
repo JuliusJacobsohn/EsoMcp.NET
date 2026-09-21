@@ -64,6 +64,7 @@ The server uses stdio: the MCP client launches it as needed, and stdout carries 
 | `database_status` | Counts, source paths, save/import times, diagnostics and refresh outcomes |
 | `refresh_database` | Optional manual refresh; `force: true` reprojects unchanged files |
 | `list_characters` | Names and identities, filterable by name/account/server |
+| `get_character_state` | Latest character summary or selected research, champion, statistics, skills or equipment section, with observation/source times |
 | `search_inventory` | Owned stacks across characters and storage; filter by item/set/location owner |
 | `get_knowledge` | Recipe, plan, motif, grimoire and script knowledge, including unknown results |
 | `list_records` | Discover saved builds, observations, research, collections and metadata |
@@ -80,6 +81,7 @@ Example requests to an assistant:
 
 - “Show me which ESO characters are available.”
 - “Find the crafter's known recipes and research records.”
+- “Show my tank's unspent CP, empty champion slots and saved character stats.”
 - “Find this set, then show all owned pieces on my account, including the bank.”
 - “Export my saved tank build for CSPS.”
 - “Generate purple level-32 crafting links for these resolved item IDs.”
@@ -91,7 +93,7 @@ Example requests to an assistant:
 | IIfA | Character directory; item links, counts and observed locations; storage metadata |
 | LibCharacterKnowledge | Names, recipes, plans, motifs, scribing, research flags and timers |
 | Caro's Skill Point Saver | Characters with or without profiles; saved build text, skills/passives, bars, attributes, CP, gear, metadata |
-| uespLog | Saved character observations: level, class/race, skill points, purchased skills, CP, equipped gear and inventory |
+| uespLog | Saved character observations: level, class/race, skill points, purchased skills/line ranks, CP budgets/stars/slots, research summaries/timers, current/per-bar/advanced stats, equipped gear and inventory |
 | LibMultiAccountSets | Current/legacy account collection masks and scan times |
 | Dolgubon's Lazy Set Crafter | Saved crafting requests; full source retained, including unprojected fields |
 | Installed LibSets | Set names and item-ID membership |
@@ -101,6 +103,17 @@ Supported filenames are `IIfA.lua`, `LibCharacterKnowledge.lua`, `CarosSkillPoin
 
 Saved builds are **plans**, not proof that their allocations are applied. Observed skills/stats are exposed separately as `character_state` records when that data exists. Unknown knowledge remains unknown. Research timers expiring are not treated as evidence of newly learned traits. Collection masks need matching piece metadata to resolve individual slots; research indices likewise need a matching catalog/signature.
 
+Use `list_characters` to obtain a `character_key`, then `get_character_state(characterKey, section)`:
+
+- `summary` (default): basic character fields and available sections.
+- `research`: per-craft and per-line known/total counts, open slots, original trait display labels and active timers with the research scan timestamp. Display labels are not numeric trait-ID mappings; `[bracketed]` traits can still be researching. This does not resolve the separate indexed LCK research flags.
+- `champion`: spent/unspent points by discipline, named purchased stars with both champion skill and ability IDs, and slot assignments. An explicit slot value of zero means empty; an absent slots table means unobserved.
+- `statistics`: current and saved-bar stats, separate addon computations and advanced flat/percent values. Original names and units are retained. Cached bars can reflect different moments/buffs; they have no individual timestamps.
+- `skills`: purchased abilities, skill-line ranks and skill-point counts. A line rank does not mean all its skills are purchased.
+- `equipment`: observed equipped item links. `all`: all normalized fields, without raw Lua details.
+
+Every response includes `available`, character identity, observation/source timestamps and latest refresh status. Missing observations/sections return `available: false`, not zero progress. The tool selects one latest character-state observation; it does not fill gaps by silently merging older snapshots or saved builds. Raw detail records remain accessible through `get_record`.
+
 LibSets supplies set membership, not complete crafting-piece/trait definitions or a full skill database. Additional metadata can be imported through `catalogPaths`; see [EsoData.NET catalogs](https://github.com/JuliusJacobsohn/EsoData.NET#resolve-ids-from-refreshable-catalogs). Crafting exports require already resolved item IDs: an ID determines the piece/set/trait, while level and quality are encoded separately. The server does not infer craftability, learn skills, equip gear or submit crafting/mail actions.
 
 ## Refresh and freshness
@@ -108,7 +121,7 @@ LibSets supplies set membership, not complete crafting-piece/trait definitions o
 - Saves are **last written disk data**, not live game memory. Source timestamps and observation timestamps are kept separately.
 - Automatic refresh checks every configured source before each database-backed tool call. Only changed contents are reimported. The manual refresh tool runs once, without a redundant automatic refresh, and accepts `force: true` when needed.
 - Each changed source is replaced transactionally. A malformed, unavailable or changing file leaves its previous successful import intact; inspect `database_status` for failures/staleness. There is no silent clearing of missing sources.
-- Content hashes skip unchanged sources. Run `refresh_database(force: true)` after upgrading the importer or changing world mappings to reprocess unchanged data.
+- Import fingerprints include content, projection revision, parser version and the configured world mapping. Upgrades that change projections, parser updates and mapping changes reprocess unchanged saves automatically. `refresh_database(force: true)` remains available for an explicit reimport. This does not pin or reject ESO API versions.
 - Queries prefer one inventory source per account/server (inventory addon first, then newest source at equal priority) to avoid summing duplicate observations. `includeAlternateSources: true` exposes all sources for comparison; do not sum them together. This preference is per account, so secondary-only locations may require that option.
 - uespLog records without a world remain explicitly `unresolved:…`. Set a location's `defaultServer` only when you know which world its otherwise unqualified records belong to.
 - Removing a source from configuration does not delete its previous observations. For a fresh import from only the current configuration, select a new database path.

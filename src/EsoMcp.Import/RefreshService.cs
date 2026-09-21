@@ -8,6 +8,8 @@ namespace EsoMcp.Import;
 
 public sealed class RefreshService(Database database, ImportOptions options) : IRefreshService
 {
+    // Reproject once when our output shape changes; this never restricts ESO API versions.
+    private const string ProjectionRevision = "2";
     private readonly SemaphoreSlim gate = new(1, 1);
     private static readonly (string File, string Provider, int Priority)[] Inputs =
     [
@@ -27,7 +29,7 @@ public sealed class RefreshService(Database database, ImportOptions options) : I
                 {
                     var path = System.IO.Path.GetFullPath(System.IO.Path.Combine(location.SavedVariablesPath, input.File));
                     Process(path, input.Provider, input.Priority, () => ReadStable(path), (text, source) =>
-                        AddonProjection.Project(input.Provider, SavedVariables.Parse(text), source, location.DefaultServer));
+                        AddonProjection.Project(input.Provider, SavedVariables.Parse(text), source, location.DefaultServer), location.DefaultServer);
                 }
                 if (location.AddonsPath is string addons)
                 {
@@ -51,14 +53,16 @@ public sealed class RefreshService(Database database, ImportOptions options) : I
             return new(DateTimeOffset.UtcNow, results);
 
             void Process(string path, string provider, int priority, Func<(string Text, DateTimeOffset Modified)> read,
-                Func<string, SourceDocument, ImportBatch> project)
+                Func<string, SourceDocument, ImportBatch> project, string? defaultServer = null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var key = Identity.Key(OperatingSystem.IsWindows() ? path.ToUpperInvariant() : path, provider);
                 try
                 {
                     var (text, modified) = read();
-                    var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+                    var contentHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+                    var hash = Identity.Key(contentHash, ProjectionRevision,
+                        typeof(SavedVariables).Assembly.GetName().Version?.ToString() ?? "", defaultServer ?? "");
                     if (!force && database.HasHash(key, hash))
                     {
                         database.RecordAttempt(key, provider, path, "unchanged"); results.Add(new(provider, "unchanged", path)); return;

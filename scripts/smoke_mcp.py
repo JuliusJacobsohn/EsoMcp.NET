@@ -96,7 +96,7 @@ def main():
                                                         "clientInfo": {"name": "EsoMcp smoke test", "version": "1.0"}})
             client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             tools = client.request("tools/list")["tools"]
-            assert len(tools) == 12, [t["name"] for t in tools]
+            assert len(tools) == 13, [t["name"] for t in tools]
             # A normal query must populate an empty database without an explicit refresh.
             characters = client.call("list_characters")
             assert characters["rows"], characters
@@ -121,6 +121,29 @@ def main():
             client.call("list_characters", {"limit": 1000}, expect_error=True)
             client.call("get_record", {"recordKey": "does-not-exist"}, expect_error=True)
             if not args.live_database:
+                # New fields are queryable through MCP, including their source/observation metadata.
+                observation = saved / "uespLog.lua"
+                observation.write_text("""
+                    uespLogSavedVars={CharName='Synthetic Character',CharId='123',WorldName='EU',
+                      AccountName='@Synthetic',TimeStamp=100,Level=50,Skills={['Craft:Clothing']=50},
+                      Research={Timestamp=90,['Clothier:Trait:Known']=120,['Clothier:Trait:Total']=126},
+                      ChampionPoints2={['Total:Unspent']=9,Slots={[1]=66,[2]=0}},Stats={Health=40000}}
+                    """, encoding="utf-8")
+                key = characters["rows"][0]["character_key"]
+                research = client.call("get_character_state", {"characterKey": key, "section": "research"})
+                assert research["available"] and research["data"]["crafts"][0]["knownTraits"] == 120
+                assert research["observation"]["name"] == "Synthetic Character"
+                cp = client.call("get_character_state", {"characterKey": key, "section": "champion"})
+                assert cp["data"]["slots"]["2"] == 0 and cp["data"]["unspentPoints"] == 9
+                stats = client.call("get_character_state", {"characterKey": key, "section": "statistics"})
+                assert stats["data"]["current"]["values"]["Health"] == 40000
+                summary = client.call("get_character_state", {"characterKey": key})
+                assert "research" in summary["data"]["availableSections"]
+                assert "equipment" not in summary["data"]["availableSections"]
+                client.call("get_character_state", {"characterKey": key, "section": "invalid"}, expect_error=True)
+                assert not client.call("get_character_state", {"characterKey": "unknown"})["available"]
+                observation.unlink()
+                assert client.call("get_character_state", {"characterKey": key, "section": "research"})["available"]
                 source = saved / "CarosSkillPointSaver.lua"
                 changed = source.read_text(encoding="utf-8").replace("Synthetic Character", "Updated Character")
                 source.write_text(changed, encoding="utf-8")

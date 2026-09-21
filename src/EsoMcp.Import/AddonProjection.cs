@@ -35,8 +35,11 @@ internal static class AddonProjection
                         state.ObservedAt, DataJson.Write(new
                         {
                             state.Level, state.Class, state.Race, state.UnspentSkillPoints, state.TotalSkillPoints, state.ChampionPoints,
-                            state.Attributes, state.Skills, state.ChampionAllocations,
-                            Equipment = state.Equipment.ToDictionary(x => x.Key, x => x.Value.ToString()),
+                            state.ApiVersion, state.Attributes, Skills = state.SkillLineRanks is null ? null : state.Skills,
+                            state.ChampionAllocations,
+                            state.Champion, state.Research, state.Statistics, state.SkillLineRanks,
+                            Equipment = state.Raw.Table("EquipSlots") is null ? null
+                                : state.Equipment.ToDictionary(x => x.Key, x => x.Value.ToString()),
                             Details = RawData.Details(state.Raw)
                         })));
                 }
