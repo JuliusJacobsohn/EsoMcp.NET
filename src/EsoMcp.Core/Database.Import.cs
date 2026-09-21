@@ -19,9 +19,12 @@ public sealed partial class Database
         writer.Insert("sources", "source_key,label,path,hash,modified_at,imported_at,priority,diagnostics_json,raw_json",
             source.Key, source.Label, source.Path, source.Hash, source.ModifiedAt, DateTimeOffset.UtcNow, source.Priority,
             DataJson.Write(source.Diagnostics ?? []), source.RawJson);
-        foreach (var observation in batch.Characters.GroupBy(x => x.Character.Key).Select(g => g.OrderByDescending(x => x.ObservedAt).First()))
+        foreach (var group in batch.Characters.GroupBy(x => x.Character.Key))
         {
+            var observation = group.OrderByDescending(x => x.ObservedAt).First();
             var c = observation.Character;
+            if (string.IsNullOrWhiteSpace(c.Name))
+                c = c with { Name = group.Select(x => x.Character.Name).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) };
             writer.Insert("characters", "source_key,character_key,server,account,game_id,name,observed_at,details_json",
                 source.Key, c.Key, c.Server, c.Account, c.Id, c.Name, observation.ObservedAt, observation.DetailsJson);
         }

@@ -120,10 +120,15 @@ public sealed partial class Database
             {
                 var name = reader.GetName(i);
                 row[name] = reader.IsDBNull(i) ? null : name.EndsWith("_json", StringComparison.Ordinal)
-                    ? JsonDocument.Parse(reader.GetString(i)).RootElement.Clone() : reader.GetValue(i);
+                    ? ParseJson(reader.GetString(i)) : reader.GetValue(i);
             }
             rows.Add(row);
         }
         return rows;
+    }
+    private static JsonElement ParseJson(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 }
