@@ -1,5 +1,6 @@
 using EsoMcp.Core;
 using System.Text.Json;
+using EsoData.Formats;
 using EsoMcp.Import;
 using EsoMcp.Server;
 
@@ -118,5 +119,26 @@ public sealed class RefreshTests
         using var result = JsonDocument.Parse(tools.Crafting([900001], 32, 4));
         Assert.Contains("item:900001:23:32:", result.RootElement.GetProperty("text").GetString());
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Crafting([900001], 33, 4));
+    }
+
+    [Fact]
+    public void CspsEquipmentExportUsesNativeSlotOrderAndLeavesOtherSectionsEmpty()
+    {
+        var result = new GameExports().CspsEquipmentImport([
+            new(0, 642, 2, 11, 4, 146),
+            new(3, 642, 1, 11, 4, 146),
+            new(4, 642, 3, 8, 4, 16),
+            new(5, 642, 14, 11, 4, 146),
+            new(20, 642, 13, 4, 4, 7)
+        ]);
+
+        var build = CspsBuild.Parse(result);
+        Assert.Null(build.Skills);
+        Assert.Equal(new CspsGearSlot(642, 2, 11, 4, 146), build.Gear![0]);
+        Assert.Equal(new CspsGearSlot(642, 1, 11, 4, 146), build.Gear[1]);
+        Assert.Equal(new CspsGearSlot(642, 3, 8, 4, 16), build.Gear[10]);
+        Assert.Equal(new CspsGearSlot(642, 14, 11, 4, 146), build.Gear[11]);
+        Assert.Equal(new CspsGearSlot(642, 13, 4, 4, 7), build.Gear[12]);
+        Assert.Equal("-#-#-#-#-#642:2:11:4:146;642:1:11:4:146;0;0;0;0;0;0;0;0;642:3:8:4:16;642:14:11:4:146;642:13:4:4:7;0;0;0#-#-#-", result);
     }
 }

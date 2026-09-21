@@ -37,6 +37,9 @@ public sealed record CraftingImportItem(long ItemId, long EnchantmentItemId = 0,
 public sealed record CraftingPlanItem(long SetId, int? EquipType = null, int? ArmorType = null,
     int? WeaponType = null, int? Trait = null, long EnchantmentItemId = 0,
     int? EnchantmentQuality = null, int? StyleId = null);
+/// <summary>One native CSPS equipment slot. Type is armor type for body slots and weapon type for hand slots.</summary>
+public sealed record CspsEquipmentItem(int EquipSlot, long SetId, int Type, int Trait, int Quality,
+    long EnchantmentEffectId);
 public sealed class ImportBatch(SourceDocument source)
 {
     public SourceDocument Source { get; } = source;
@@ -60,6 +63,7 @@ public interface IGameExports
         int styleId = 1, long enchantmentItemId = 0);
     string CraftingImport(IReadOnlyList<CraftingImportItem> items, int level, int quality, int championPoints = 0,
         int styleId = 1);
+    string CspsEquipmentImport(IReadOnlyList<CspsEquipmentItem> items);
 }
 public interface ICraftingCatalog
 {

@@ -96,7 +96,7 @@ def main():
                                                         "clientInfo": {"name": "EsoMcp smoke test", "version": "1.0"}})
             client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             tools = client.request("tools/list")["tools"]
-            assert len(tools) == 15, [t["name"] for t in tools]
+            assert len(tools) == 16, [t["name"] for t in tools]
             # A normal query must populate an empty database without an explicit refresh.
             characters = client.call("list_characters")
             assert characters["rows"], characters
@@ -117,6 +117,11 @@ def main():
                 assert len(page["rows"]) <= 2 and page["limit"] == 2
             crafted = client.call("create_crafting_import", {"itemIds": [900001], "level": 32, "quality": 4})
             assert "item:900001:23:32:" in crafted["text"]
+            equipment = client.call("create_csps_equipment_import", {"items": [
+                {"equipSlot": 0, "setId": 642, "type": 2, "trait": 11, "quality": 4,
+                 "enchantmentEffectId": 146}
+            ]})
+            assert equipment["text"].startswith("-#-#-#-#-#642:2:11:4:146;")
             client.call("create_crafting_import", {"itemIds": [900001], "level": 33, "quality": 4}, expect_error=True)
             client.call("list_characters", {"limit": 1000}, expect_error=True)
             client.call("get_record", {"recordKey": "does-not-exist"}, expect_error=True)
