@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.vs/
+artifacts/
+TestResults/
+local-data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+settings.local.json

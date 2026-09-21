@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>eso-mcp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <ProjectReference Include="../EsoMcp.Core/EsoMcp.Core.csproj" />
+    <ProjectReference Include="../EsoMcp.Import/EsoMcp.Import.csproj" />
+  </ItemGroup>
+</Project>
