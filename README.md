@@ -74,6 +74,8 @@ The server uses stdio: the MCP client launches it as needed, and stdout carries 
 | `find_skill_definitions` | Resolve skill IDs when a skill catalog is supplied |
 | `export_saved_build` | Return a stored profile as native CSPS text |
 | `create_crafting_import` | Encode resolved item IDs, level, quality, style and optional enchantment into Lazy Set Crafter links |
+| `refresh_item_metadata` | Explicitly download item metadata for selected local LibSets set IDs into SQLite |
+| `create_semantic_crafting_import` | Resolve set/piece/trait choices from SQLite and create one per-item-glyph crafting import |
 
 List/search tools use `offset` and `limit` (1–200) and return `hasMore`. Character keys and record keys are opaque strings returned by the tools. Use canonical server `EU` or `NA`; `EU Megaserver`/`NA Megaserver` source labels are normalized during import. Other world labels are preserved. Names can change without changing identity. Accounts and servers are separate ownership pools.
 
@@ -114,7 +116,7 @@ Use `list_characters` to obtain a `character_key`, then `get_character_state(cha
 
 Every response includes `available`, character identity, observation/source timestamps and latest refresh status. Missing observations/sections return `available: false`, not zero progress. The tool selects one latest character-state observation; it does not fill gaps by silently merging older snapshots or saved builds. Raw detail records remain accessible through `get_record`.
 
-LibSets supplies set membership, not complete crafting-piece/trait definitions or a full skill database. Additional metadata can be imported through `catalogPaths`; see [EsoData.NET catalogs](https://github.com/JuliusJacobsohn/EsoData.NET#resolve-ids-from-refreshable-catalogs). Crafting exports require already resolved item IDs: an ID determines the piece/set/trait, while level and quality are encoded separately. The server does not infer craftability, learn skills, equip gear or submit crafting/mail actions.
+LibSets supplies set membership, not complete crafting-piece/trait definitions or a full skill database. `refresh_item_metadata` explicitly fetches current UESP metadata for the selected installed LibSets set IDs, stores it in local SQLite, and leaves later resolution/database requests offline. Additional metadata can also be imported through `catalogPaths`; see [EsoData.NET catalogs](https://github.com/JuliusJacobsohn/EsoData.NET#resolve-ids-from-refreshable-catalogs). `create_semantic_crafting_import` accepts one structured selector per item and supports a distinct glyph/style for every item. The server does not infer craftability, learn skills, equip gear or submit crafting/mail actions.
 
 ## Refresh and freshness
 

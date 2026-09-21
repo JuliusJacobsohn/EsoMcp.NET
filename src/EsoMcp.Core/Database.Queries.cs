@@ -91,6 +91,34 @@ public sealed partial class Database
         ORDER BY item_id
         """, offset, limit, ("set", setId), ("item", itemId), ("equip", equipType), ("trait", trait));
 
+    public IReadOnlyList<long> CatalogItemIds(long setId)
+    {
+        if (setId <= 0) throw new ArgumentOutOfRangeException(nameof(setId));
+        using var connection = Open(); using var command = connection.CreateCommand();
+        command.CommandText = "SELECT DISTINCT item_id FROM catalog_items WHERE set_id=$set ORDER BY item_id";
+        command.Parameters.AddWithValue("$set", setId);
+        using var reader = command.ExecuteReader();
+        var ids = new List<long>();
+        while (reader.Read()) ids.Add(reader.GetInt64(0));
+        return ids;
+    }
+
+    /// <summary>Returns all source definitions in ascending priority order so callers can merge their non-null fields.</summary>
+    public IReadOnlyList<string> CatalogItemDocuments(long setId)
+    {
+        if (setId <= 0) throw new ArgumentOutOfRangeException(nameof(setId));
+        using var connection = Open(); using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT c.data_json FROM catalog_items c JOIN sources s USING(source_key)
+            WHERE c.set_id=$set ORDER BY s.priority,s.modified_at,s.source_key,c.item_id
+            """;
+        command.Parameters.AddWithValue("$set", setId);
+        using var reader = command.ExecuteReader();
+        var documents = new List<string>();
+        while (reader.Read()) documents.Add(reader.GetString(0));
+        return documents;
+    }
+
     public Page Skills(string? text = null, long? skillId = null, int offset = 0, int limit = 50) => Paged("""
         WITH ranked AS (
           SELECT c.*,ROW_NUMBER() OVER(PARTITION BY skill_id ORDER BY s.priority DESC,s.modified_at DESC,s.source_key) AS rn

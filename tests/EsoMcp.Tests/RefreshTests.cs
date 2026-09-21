@@ -1,3 +1,4 @@
+using EsoMcp.Core;
 using System.Text.Json;
 using EsoMcp.Import;
 using EsoMcp.Server;
@@ -98,6 +99,18 @@ public sealed class RefreshTests
         Assert.Empty(work.Database.Sets().Rows);
     }
 
+    [Fact]
+    public void CraftingExportKeepsGlyphsDistinctForEachResolvedItem()
+    {
+        var result = new GameExports().CraftingImport([
+            new CraftingImportItem(900001, 68343),
+            new CraftingImportItem(900002, 45870, EnchantmentQuality: 3, StyleId: 4)
+        ], level: 50, quality: 4, championPoints: 160);
+
+        Assert.Contains("item:900001:369:50:68343:369:50:", result);
+        Assert.Contains("item:900002:369:50:45870:368:50:", result);
+        Assert.Contains(":4:1:0:0:10000:0", result);
+    }
     [Fact]
     public void CraftingExportEncodesPurpleLevel32AndRejectsUncraftableLevel()
     {

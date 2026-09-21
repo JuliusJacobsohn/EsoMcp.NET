@@ -3,7 +3,7 @@ using EsoMcp.Core;
 
 namespace EsoMcp.Import;
 
-internal static class CatalogProjection
+public static class CatalogProjection
 {
     public static ImportBatch Project(GameCatalog catalog, SourceDocument source)
     {

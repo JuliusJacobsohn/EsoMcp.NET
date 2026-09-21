@@ -30,6 +30,13 @@ public sealed record DataRecord(string Kind, string LocalId, string? CharacterKe
 public sealed record CatalogSet(long Id, string? Name, string NamesJson);
 public sealed record CatalogItem(long Id, long? SetId, string? Name, int? EquipType, int? Trait, string Json);
 public sealed record CatalogSkill(long Id, string? Name, string Json);
+/// <summary>One concrete result in a crafting import, including its own optional glyph and style.</summary>
+public sealed record CraftingImportItem(long ItemId, long EnchantmentItemId = 0, int? EnchantmentQuality = null,
+    int? StyleId = null);
+/// <summary>One item to resolve from refreshable set metadata before creating a crafting import.</summary>
+public sealed record CraftingPlanItem(long SetId, int? EquipType = null, int? ArmorType = null,
+    int? WeaponType = null, int? Trait = null, long EnchantmentItemId = 0,
+    int? EnchantmentQuality = null, int? StyleId = null);
 public sealed class ImportBatch(SourceDocument source)
 {
     public SourceDocument Source { get; } = source;
@@ -51,4 +58,12 @@ public interface IGameExports
 {
     string CraftingImport(IReadOnlyList<long> itemIds, int level, int quality, int championPoints = 0,
         int styleId = 1, long enchantmentItemId = 0);
+    string CraftingImport(IReadOnlyList<CraftingImportItem> items, int level, int quality, int championPoints = 0,
+        int styleId = 1);
+}
+public interface ICraftingCatalog
+{
+    Task<IReadOnlyList<RefreshEntry>> RefreshItemMetadataAsync(IReadOnlyList<long> setIds,
+        CancellationToken cancellationToken = default);
+    IReadOnlyList<long> Resolve(IReadOnlyList<CraftingPlanItem> items);
 }
