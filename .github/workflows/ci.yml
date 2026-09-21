@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: dotnet build EsoMcp.sln -c Release
+      - run: dotnet test EsoMcp.sln -c Release --no-build
+      - run: python scripts/smoke_mcp.py
+      - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false
+      - uses: actions/upload-artifact@v7
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: eso-mcp-portable
+          path: artifacts/server/
