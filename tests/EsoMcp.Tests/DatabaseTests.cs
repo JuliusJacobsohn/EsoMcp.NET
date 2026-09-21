@@ -39,7 +39,7 @@ public sealed class DatabaseTests
         using var work = new TestWorkspace();
         var first = work.Batch(); first.Inventory.Add(new("EU", "@A", null, "Bank", 1, 3, "link"));
         var other = work.Batch("other", 50);
-        other.Inventory.Add(new("EU", "@A", null, "Bank", 1, 3, "link"));
+        other.Inventory.Add(new("EU", "@a", null, "Bank", 1, 3, "link"));
         other.Inventory.Add(new("EU", "@B", null, "Bank", 1, 7, "link"));
         work.Database.Replace(first); work.Database.Replace(other);
         Assert.Equal(2, work.Database.Inventory().Rows.Count);

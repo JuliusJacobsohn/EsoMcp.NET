@@ -11,3 +11,5 @@ local-data/
 *.sqlite-wal
 *.sqlite-shm
 settings.local.json
+settings.json
+__pycache__/

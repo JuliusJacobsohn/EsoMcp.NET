@@ -41,7 +41,7 @@ public sealed partial class Database
               AND ($account IS NULL OR i.account=$account COLLATE NOCASE) AND ($server IS NULL OR i.server=$server COLLATE NOCASE)
               AND ($alternates=1 OR NOT EXISTS(
                 SELECT 1 FROM inventory other JOIN sources os ON other.source_key=os.source_key
-                WHERE other.account=i.account AND other.server=i.server
+                WHERE other.account=i.account COLLATE NOCASE AND other.server=i.server COLLATE NOCASE
                 AND (os.priority>s.priority OR (os.priority=s.priority AND
                   (os.modified_at>s.modified_at OR (os.modified_at=s.modified_at AND os.source_key<s.source_key))))))
             ORDER BY i.server,i.account,i.location,i.name,i.row_id

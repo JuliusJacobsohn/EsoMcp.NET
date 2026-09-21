@@ -21,7 +21,7 @@ jobs:
       - name: Validate release version
         shell: bash
         run: |
-          version=$(dotnet msbuild src/EsoMcp.Server -nologo -getProperty:Version)
+          version=$(dotnet msbuild src/EsoMcp.Server/EsoMcp.Server.csproj -nologo -getProperty:Version)
           test "$GITHUB_REF_NAME" = "v$version"
       - run: dotnet build EsoMcp.sln -c Release
       - run: dotnet test EsoMcp.sln -c Release --no-build
