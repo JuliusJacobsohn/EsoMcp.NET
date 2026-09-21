@@ -1,0 +1,54 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
+namespace EsoMcp.Core;
+
+public static class DataJson
+{
+    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = false };
+    public static string Write<T>(T value) => JsonSerializer.Serialize(value, Options);
+}
+
+public sealed record CharacterIdentity(string Server, string Account, string Id, string? Name = null)
+{
+    public string Key => Identity.Key(Server.ToUpperInvariant(), Account.ToUpperInvariant(), Id);
+}
+public static class Identity
+{
+    public static string Key(params string[] parts) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(DataJson.Write(parts))));
+}
+public sealed record SourceDocument(string Key, string Label, string Path, string Hash, DateTimeOffset ModifiedAt,
+    string RawJson, int Priority = 0, IReadOnlyList<string>? Diagnostics = null);
+public sealed record CharacterObservation(CharacterIdentity Character, DateTimeOffset? ObservedAt = null, string? DetailsJson = null);
+public sealed record InventoryItem(string Server, string Account, string? CharacterKey, string Location, long ItemId,
+    long Count, string Link, string? Name = null, int? Quality = null, int? BagId = null, long? Slot = null,
+    DateTimeOffset? ObservedAt = null);
+public sealed record KnowledgeItem(string CharacterKey, string Category, int Index, long ItemId, bool? Known, DateTimeOffset? ObservedAt);
+public sealed record DataRecord(string Kind, string LocalId, string? CharacterKey, string Server, string Account,
+    string? Name, DateTimeOffset? ObservedAt, string Json);
+public sealed record CatalogSet(long Id, string? Name, string NamesJson);
+public sealed record CatalogItem(long Id, long? SetId, string? Name, int? EquipType, int? Trait, string Json);
+public sealed record CatalogSkill(long Id, string? Name, string Json);
+public sealed class ImportBatch(SourceDocument source)
+{
+    public SourceDocument Source { get; } = source;
+    public List<CharacterObservation> Characters { get; } = [];
+    public List<InventoryItem> Inventory { get; } = [];
+    public List<KnowledgeItem> Knowledge { get; } = [];
+    public List<DataRecord> Records { get; } = [];
+    public List<CatalogSet> Sets { get; } = [];
+    public List<CatalogItem> Items { get; } = [];
+    public List<CatalogSkill> Skills { get; } = [];
+}
+public sealed record RefreshEntry(string Source, string Status, string? Message = null);
+public sealed record RefreshResult(DateTimeOffset CompletedAt, IReadOnlyList<RefreshEntry> Sources);
+public interface IRefreshService
+{
+    Task<RefreshResult> RefreshAsync(bool force = false, CancellationToken cancellationToken = default);
+}
+public interface IGameExports
+{
+    string CraftingImport(IReadOnlyList<long> itemIds, int level, int quality, int championPoints = 0,
+        int styleId = 1, long enchantmentItemId = 0);
+}
