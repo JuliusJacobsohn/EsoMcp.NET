@@ -92,7 +92,7 @@ public sealed class ExportTools(Database database, IGameExports exports)
     });
 
     [McpServerTool(Name = "create_csps_respec_import", ReadOnly = true, OpenWorld = false)]
-    [Description("Create one native CSPS import for a full skill respec, two bars, attributes and all Champion Points. Run refresh_skill_metadata for the selected ability IDs first. ClassSkillLineIds must be the character's three native skill-line IDs, resolved with find_skill_lines. Validates class ownership, canonicalizes CSPS base IDs, and checks observed skill/CP budgets; it cannot guarantee an unobserved unlock or apply the build in game. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
+    [Description("Create one native-class CSPS import for a full skill respec, two bars, attributes and all Champion Points. Run refresh_skill_metadata for selected abilities first. Leaves the subclass field empty, matching native CSPS exports: UESP catalog line IDs are not interchangeable with ESO's runtime skill-line IDs. Canonicalizes CSPS base IDs and checks observed skill/CP budgets; it cannot guarantee an unobserved unlock or apply the build in game. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
     public string Respec(string characterKey, CspsRespecPlan plan) => ToolResult.Json(() =>
     {
         var skillsView = database.CharacterState(characterKey, "skills");
@@ -109,19 +109,8 @@ public sealed class ExportTools(Database database, IGameExports exports)
         if (plan.Passive.Any(x => x.AbilityId <= 0 || x.Rank is < 1 or > 3)
             || plan.Passive.Select(x => x.AbilityId).Distinct().Count() != plan.Passive.Length)
             throw new ArgumentException("Passive skills need distinct positive IDs and rank 1, 2 or 3.");
-        if (plan.ClassSkillLineIds is not { Length: 3 }
-            || plan.ClassSkillLineIds.Any(id => id <= 0)
-            || plan.ClassSkillLineIds.Distinct().Count() != 3)
-            throw new ArgumentException("Supply three distinct positive current class skill-line IDs. These are not class IDs or line indices.");
-        var character = (IReadOnlyDictionary<string, JsonElement>)database.CharacterState(characterKey, "all").Data!;
-        var className = character["class"].GetString();
-        foreach (var id in plan.ClassSkillLineIds)
-        {
-            var row = database.SkillLines(skillLineId: id).Rows.SingleOrDefault();
-            if (row is null) throw new ArgumentException($"Skill-line ID {id} is absent from the local catalog. Run refresh_skill_metadata first.");
-            if ((string?)row["class_type"] != className || ((string?)row["name"])?.StartsWith("Class Mastery", StringComparison.OrdinalIgnoreCase) == true)
-                throw new ArgumentException($"Skill-line ID {id} is not one of {className}'s three native class lines.");
-        }
+        if (plan.ClassSkillLineIds is { Length: > 0 })
+            throw new ArgumentException("Native-class CSPS imports must omit ClassSkillLineIds. UESP catalog IDs are not ESO runtime subclass IDs.");
         if (plan.FrontBar.Length != 6 || plan.BackBar.Length != 6 ||
             plan.FrontBar.Concat(plan.BackBar).Any(id => id <= 0 || !plan.Active.Any(x => x.AbilityId == id)))
             throw new ArgumentException("Each bar needs six purchased active IDs.");
@@ -164,8 +153,7 @@ public sealed class ExportTools(Database database, IGameExports exports)
         }).ToArray();
         var build = new CspsBuild
         {
-            Skills = new CspsSkills(plan.Active.Select(x => selectedActives[x.AbilityId]).ToArray(), selectedPassives,
-                Subclasses: plan.ClassSkillLineIds),
+            Skills = new CspsSkills(plan.Active.Select(x => selectedActives[x.AbilityId]).ToArray(), selectedPassives),
             Bars = new IReadOnlyList<BarSlot?>[]
             {
                 plan.FrontBar.Select(x => (BarSlot?)catalog.ToBarSlot(x)).ToArray(),

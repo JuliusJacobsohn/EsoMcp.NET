@@ -77,7 +77,7 @@ public sealed class DatabaseTools(Database database, IRefreshService refresh)
         ToolResult.Json(() => CompactResults.Page(database.Skills(text, skillId, offset, limit), includeDetails, "skill_id", "name"));
 
     [McpServerTool(Name = "find_skill_lines", ReadOnly = true, OpenWorld = false)]
-    [Description("Resolve current skill-line IDs from imported metadata, optionally filtering by class name. Run refresh_skill_metadata first. IDs here are the class skill-line IDs required by native CSPS subclass fields, not class IDs or indices.")]
+    [Description("Resolve UESP catalog skill-line IDs from imported metadata, optionally filtering by class name. Run refresh_skill_metadata first. Catalog IDs are not interchangeable with ESO runtime IDs in CSPS subclass fields.")]
     public string SkillLines(string? classType = null, long? skillLineId = null, int offset = 0, int limit = 25,
         bool includeDetails = false) => ToolResult.Json(() => CompactResults.Page(
             database.SkillLines(classType, skillLineId, offset, limit), includeDetails,

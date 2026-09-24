@@ -141,7 +141,7 @@ public sealed class RefreshTests
         var plan = new CspsRespecPlan([new(101, 2), new(102, 0)], [new(201, 2), new(202, 1)],
             [101, 102, 101, 102, 101, 102], [102, 101, 102, 101, 102, 101],
             [new(66, 21)], [66, null, null, null, null, null, null, null, null, null, null, null],
-            16, 48, 0, [7, 8, 9]);
+            16, 48, 0);
         using var output = JsonDocument.Parse(tools.Respec(key, plan));
         var root = output.RootElement;
         var build = CspsBuild.Parse(root.GetProperty("text").GetString()!);
@@ -150,7 +150,7 @@ public sealed class RefreshTests
         Assert.Equal(21, root.GetProperty("plannedChampionPoints").GetInt32());
         Assert.Equal(2, build.Skills!.Active.Count);
         Assert.Equal(2, build.Skills.Passive.Count);
-        Assert.Equal(new long[] { 7, 8, 9 }, build.Skills.Subclasses);
+        Assert.Empty(build.Skills.Subclasses!);
         Assert.Equal(100, build.Bars![0][0]!.AbilityId);
         Assert.Equal(200, build.Skills.Passive[0].AbilityId);
         Assert.Equal(new EsoData.Models.Attributes(16, 48, 0), build.Attributes);
@@ -160,9 +160,7 @@ public sealed class RefreshTests
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
             plan with { ChampionPoints = [new(66, 20)] }));
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
-            plan with { ClassSkillLineIds = [35, 35, 37] }));
-        Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
-            plan with { ClassSkillLineIds = [7, 8, 35] }));
+            plan with { ClassSkillLineIds = [7, 8, 9] }));
     }
 
     [Fact]

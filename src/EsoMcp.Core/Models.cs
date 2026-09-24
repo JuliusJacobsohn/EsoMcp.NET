@@ -44,7 +44,7 @@ public sealed record CspsEquipmentItem(int EquipSlot, long SetId, int Type, int 
 /// <summary>A complete native CSPS respec plan using resolved game IDs, with gear left untouched.</summary>
 public sealed record CspsRespecPlan(CspsActivePurchase[] Active, CspsPassivePurchase[] Passive,
     long[] FrontBar, long[] BackBar, CspsChampionAllocation[] ChampionPoints, long?[] ChampionSlots,
-    int Health, int Magicka, int Stamina, long[] ClassSkillLineIds);
+    int Health, int Magicka, int Stamina, long[]? ClassSkillLineIds = null);
 public sealed record CspsActivePurchase(long AbilityId, int Morph);
 public sealed record CspsPassivePurchase(long AbilityId, int Rank);
 public sealed record CspsChampionAllocation(long SkillId, int Points);
