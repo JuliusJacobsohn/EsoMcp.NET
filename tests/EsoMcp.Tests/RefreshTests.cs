@@ -83,6 +83,34 @@ public sealed class RefreshTests
     }
 
     [Fact]
+    public async Task AvailableLoadoutImportsBarsAndObservedCpWithoutPlanningSkillPurchases()
+    {
+        using var work = new TestWorkspace();
+        work.Write("uespLog.lua", """
+            uespLogSavedVars={Default={['@Example']={charData={data={CharName='Observer',CharId='123',
+              AccountName='@Example',WorldName='NA Megaserver',TimeStamp=100,
+              Skills={['1:1:1']={id=101,rank=3,type='active'},['1:1:2']={id=102,rank=1,type='active'}},
+              ChampionPoints2={['Total:Spent']=20,['Total:Unspent']=1,
+                Slots={[1]=66,[2]=0,[3]=0,[4]=0,[5]=0,[6]=0,[7]=0,[8]=0,[9]=0,[10]=0,[11]=0,[12]=0},
+                ['Craft:Steed']={skillId=66,points=20,slot=1}}
+            }}}}}
+            """);
+        await work.Refresh.RefreshAsync();
+        var key = (string)Assert.Single(work.Database.Characters(name: "Observer").Rows)["character_key"]!;
+        var tools = new ExportTools(work.Database, new GameExports());
+        using var output = JsonDocument.Parse(tools.AvailableLoadout(key,
+            [101, 102, 101, 102, 101, 102], [102, 101, 102, 101, 102, 101]));
+        var build = CspsBuild.Parse(output.RootElement.GetProperty("text").GetString()!);
+        Assert.Null(build.Skills);
+        Assert.Null(build.Gear);
+        Assert.Equal(101, build.Bars![0][0]!.AbilityId);
+        Assert.Equal(66, build.ChampionPoints!.Bars[0][0]);
+        Assert.Equal(20, Assert.Single(build.ChampionPoints.Allocations).Points);
+        Assert.Throws<ModelContextProtocol.McpException>(() => tools.AvailableLoadout(key,
+            [101, 102, 101, 102, 101, 999], [102, 101, 102, 101, 102, 101]));
+    }
+
+    [Fact]
     public async Task CatalogRefreshReplacesDefinitionsAndQueriesNeedNoCatalogFile()
     {
         using var work = new TestWorkspace();
