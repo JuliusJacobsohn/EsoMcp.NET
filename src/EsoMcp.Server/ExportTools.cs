@@ -92,17 +92,18 @@ public sealed class ExportTools(Database database, IGameExports exports)
     });
 
     [McpServerTool(Name = "create_csps_respec_import", ReadOnly = true, OpenWorld = false)]
-    [Description("Create one native-class CSPS import for a full skill respec, two bars, attributes and all Champion Points. Run refresh_skill_metadata for selected abilities first. Leaves the subclass field empty, matching native CSPS exports: UESP catalog line IDs are not interchangeable with ESO's runtime skill-line IDs. Canonicalizes CSPS base IDs and checks observed skill/CP budgets; it cannot guarantee an unobserved unlock or apply the build in game. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
+    [Description("Create one native-class CSPS import for a full skill respec, two bars, attributes and optional Champion Points. To leave CP untouched, pass empty ChampionPoints and twelve null ChampionSlots. Run refresh_skill_metadata for selected abilities first. Leaves the subclass field empty, matching native CSPS exports: UESP catalog line IDs are not interchangeable with ESO's runtime skill-line IDs. Canonicalizes CSPS base IDs and checks observed skill/CP budgets; it cannot guarantee an unobserved unlock or apply the build in game.")]
     public string Respec(string characterKey, CspsRespecPlan plan) => ToolResult.Json(() =>
     {
         var skillsView = database.CharacterState(characterKey, "skills");
         var championView = database.CharacterState(characterKey, "champion");
-        if (!skillsView.Available || !championView.Available)
-            throw new ArgumentException("Current skill and CP observations are required for this character.");
+        var includeCp = plan.ChampionPoints.Length > 0;
+        if (!skillsView.Available || (includeCp && !championView.Available))
+            throw new ArgumentException("Current skill observations and, when allocating CP, CP observations are required.");
         var skills = (IReadOnlyDictionary<string, JsonElement>)skillsView.Data!;
         var champion = (JsonElement)championView.Data!;
         var totalSkills = skills["totalSkillPoints"].GetInt32();
-        var totalCp = champion.GetProperty("spentPoints").GetInt32() + champion.GetProperty("unspentPoints").GetInt32();
+        var totalCp = includeCp ? champion.GetProperty("spentPoints").GetInt32() + champion.GetProperty("unspentPoints").GetInt32() : 0;
         if (plan.Active.Length == 0 || plan.Active.Any(x => x.AbilityId <= 0 || x.Morph is < 0 or > 2)
             || plan.Active.Select(x => x.AbilityId).Distinct().Count() != plan.Active.Length)
             throw new ArgumentException("Active skills need distinct positive IDs and morph 0, 1 or 2.");
@@ -120,13 +121,14 @@ public sealed class ExportTools(Database database, IGameExports exports)
         var plannedSkills = plan.Active.Sum(x => 1 + (x.Morph == 0 ? 0 : 1)) + plan.Passive.Sum(x => x.Rank);
         if (plannedSkills > totalSkills)
             throw new ArgumentException($"Plan needs {plannedSkills} skill points, but {totalSkills} are observed.");
-        if (plan.ChampionPoints.Length == 0 || plan.ChampionPoints.Any(x => x.SkillId <= 0 || x.Points <= 0)
+        if (plan.ChampionPoints.Any(x => x.SkillId <= 0 || x.Points <= 0)
             || plan.ChampionPoints.Select(x => x.SkillId).Distinct().Count() != plan.ChampionPoints.Length)
             throw new ArgumentException("Champion allocations need distinct positive IDs and points.");
         var plannedCp = plan.ChampionPoints.Sum(x => x.Points);
         if (plannedCp != totalCp)
             throw new ArgumentException($"Plan allocates {plannedCp} CP, but {totalCp} are observed.");
-        if (plan.ChampionSlots.Length != 12 || plan.ChampionSlots.Any(id => id is > 0 &&
+        if (plan.ChampionSlots.Length != 12 || (!includeCp && plan.ChampionSlots.Any(id => id is > 0))
+            || plan.ChampionSlots.Any(id => id is > 0 &&
             !plan.ChampionPoints.Any(x => x.SkillId == id)))
             throw new ArgumentException("Champion slots need twelve IDs, each with allocated points.");
         var catalog = new GameCatalog();
@@ -160,17 +162,18 @@ public sealed class ExportTools(Database database, IGameExports exports)
                 plan.BackBar.Select(x => (BarSlot?)catalog.ToBarSlot(x)).ToArray()
             },
             Attributes = new EsoData.Models.Attributes(plan.Health, plan.Magicka, plan.Stamina),
-            ChampionPoints = new CspsChampionPoints(
+            ChampionPoints = includeCp ? new CspsChampionPoints(
                 plan.ChampionPoints.Select(x => new ChampionStar(x.SkillId, x.Points)).ToArray(),
                 Enumerable.Range(0, 3).Select(bar => (IReadOnlyList<long?>)plan.ChampionSlots
-                    .Skip(bar * 4).Take(4).ToArray()).ToArray())
+                    .Skip(bar * 4).Take(4).ToArray()).ToArray()) : null
         };
         return new
         {
             Format = "CSPS", Text = build.ToString(),
-            Sections = new[] { "skills", "ability bar", "stats", "champion points" },
+            Sections = includeCp ? new[] { "skills", "ability bar", "stats", "champion points" }
+                : new[] { "skills", "ability bar", "stats" },
             TotalSkillPoints = totalSkills, PlannedSkillPoints = plannedSkills,
-            RemainingSkillPoints = totalSkills - plannedSkills, PlannedChampionPoints = plannedCp,
+            RemainingSkillPoints = totalSkills - plannedSkills, PlannedChampionPoints = includeCp ? plannedCp : (int?)null,
             ObservedAt = skillsView.Observation!["observed_at"], AppliedInGame = false
         };
     });

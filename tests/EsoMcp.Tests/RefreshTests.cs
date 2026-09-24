@@ -155,6 +155,12 @@ public sealed class RefreshTests
         Assert.Equal(200, build.Skills.Passive[0].AbilityId);
         Assert.Equal(new EsoData.Models.Attributes(16, 48, 0), build.Attributes);
         Assert.Null(build.Gear);
+        using var withoutCp = JsonDocument.Parse(tools.Respec(key, plan with
+        {
+            ChampionPoints = [], ChampionSlots = new long?[12]
+        }));
+        Assert.Null(CspsBuild.Parse(withoutCp.RootElement.GetProperty("text").GetString()!).ChampionPoints);
+        Assert.Equal(JsonValueKind.Null, withoutCp.RootElement.GetProperty("plannedChampionPoints").ValueKind);
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
             plan with { Passive = [new(201, 3), new(202, 3)] }));
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
