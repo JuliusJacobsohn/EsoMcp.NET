@@ -141,4 +141,23 @@ public sealed class RefreshTests
         Assert.Equal(new CspsGearSlot(642, 13, 4, 4, 7), build.Gear[12]);
         Assert.Equal("-#-#-#-#-#642:2:11:4:146;642:1:11:4:146;0;0;0;0;0;0;0;0;642:3:8:4:16;642:14:11:4:146;642:13:4:4:7;0;0;0#-#-#-", result);
     }
+
+    [Fact]
+    public void HubBuildExportPatchesBarsAndChampionPointsWithoutChangingOtherSections()
+    {
+        var template = "1;6;2;64:0:0;0;0;35,36,37;1,2,3,4,5,6;7,8,9,10,11,12;0;0,0,0,0,0,0,0,0,0,0,0,0;0;0;0;0";
+        var patch = new HubBuildPatch(template,
+            FrontBar: [new(21), new(22), null, null, null, new(26)],
+            SlottedChampionPoints: [new(66, 50), null, null, null, new(264, 50), null, null, null,
+                new(2, 50), null, null, null],
+            OtherChampionPoints: [new(10, 14)]);
+
+        var (text, url) = new GameExports().HubBuildImport(patch);
+        var build = HubBuild.Parse(url);
+        Assert.Equal(text, build.ToString());
+        Assert.Equal("64:0:0", build.Fields[3]);
+        Assert.Equal(21, build.FrontBar[0]!.AbilityId);
+        Assert.Equal(50, build.SlottedChampionPoints[0]!.Points);
+        Assert.Equal(14, build.OtherChampionPoints[0].Points);
+    }
 }

@@ -40,6 +40,12 @@ public sealed record CraftingPlanItem(long SetId, int? EquipType = null, int? Ar
 /// <summary>One native CSPS equipment slot. Type is armor type for body slots and weapon type for hand slots.</summary>
 public sealed record CspsEquipmentItem(int EquipSlot, long SetId, int Type, int Trait, int Quality,
     long EnchantmentEffectId);
+/// <summary>Optional ESO-Hub build-editor changes to a supplied addondata template.</summary>
+public sealed record HubBuildPatch(string Template, HubAbilitySlot?[]? FrontBar = null,
+    HubAbilitySlot?[]? BackBar = null, HubChampionPoint?[]? SlottedChampionPoints = null,
+    HubChampionPoint[]? OtherChampionPoints = null);
+public sealed record HubAbilitySlot(long AbilityId, long[]? Scripts = null);
+public sealed record HubChampionPoint(long SkillId, int Points);
 public sealed class ImportBatch(SourceDocument source)
 {
     public SourceDocument Source { get; } = source;
@@ -64,6 +70,7 @@ public interface IGameExports
     string CraftingImport(IReadOnlyList<CraftingImportItem> items, int level, int quality, int championPoints = 0,
         int styleId = 1);
     string CspsEquipmentImport(IReadOnlyList<CspsEquipmentItem> items);
+    (string Text, string Url) HubBuildImport(HubBuildPatch patch);
 }
 public interface ICraftingCatalog
 {

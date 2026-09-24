@@ -44,4 +44,18 @@ public sealed class GameExports : IGameExports
         var build = new CspsBuild { Gear = gear };
         return build.ToString();
     }
+
+    public (string Text, string Url) HubBuildImport(HubBuildPatch patch)
+    {
+        var build = HubBuild.Parse(patch.Template);
+        if (patch.FrontBar is not null)
+            build.FrontBar = patch.FrontBar.Select(x => x is null ? null : new HubBarSlot(x.AbilityId, x.Scripts)).ToArray();
+        if (patch.BackBar is not null)
+            build.BackBar = patch.BackBar.Select(x => x is null ? null : new HubBarSlot(x.AbilityId, x.Scripts)).ToArray();
+        if (patch.SlottedChampionPoints is not null)
+            build.SlottedChampionPoints = patch.SlottedChampionPoints.Select(x => x is null ? null : new ChampionStar(x.SkillId, x.Points)).ToArray();
+        if (patch.OtherChampionPoints is not null)
+            build.OtherChampionPoints = patch.OtherChampionPoints.Select(x => new ChampionStar(x.SkillId, x.Points)).ToArray();
+        return (build.ToString(), build.ToUrl());
+    }
 }

@@ -32,4 +32,12 @@ public sealed class ExportTools(Database database, IGameExports exports)
         Sections = new[] { "equipment" },
         AppliedInGame = false
     });
+
+    [McpServerTool(Name = "create_hub_build_import", ReadOnly = true, OpenWorld = false)]
+    [Description("Patch bars and Champion Points in an existing ESO-Hub addondata string or build-editor URL, then return import text and URL for CSPS Import Link. Six positions per bar, twelve CP slots in Craft/Warfare/Fitness order. Omitted sections stay as in the template. Does not apply or validate the build in game.")]
+    public string HubBuild(HubBuildPatch patch) => ToolResult.Json(() =>
+    {
+        var (text, url) = exports.HubBuildImport(patch);
+        return new { Format = "ESO-Hub build-editor", Text = text, Url = url, AppliedInGame = false };
+    });
 }
