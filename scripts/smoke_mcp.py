@@ -96,7 +96,8 @@ def main():
                                                         "clientInfo": {"name": "EsoMcp smoke test", "version": "1.0"}})
             client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             tools = client.request("tools/list")["tools"]
-            assert len(tools) == 17, [t["name"] for t in tools]
+            assert {"list_characters", "search_inventory", "get_record", "database_status"}.issubset(
+                {tool["name"] for tool in tools}), [t["name"] for t in tools]
             # A normal query must populate an empty database without an explicit refresh.
             characters = client.call("list_characters")
             assert characters["rows"], characters

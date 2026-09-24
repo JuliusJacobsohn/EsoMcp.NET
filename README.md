@@ -61,25 +61,28 @@ The server uses stdio: the MCP client launches it as needed, and stdout carries 
 
 | Tool | Purpose |
 |---|---|
-| `database_status` | Counts, source paths, save/import times, diagnostics and refresh outcomes |
+| `database_status` | Counts, save/import times, diagnostics and refresh outcomes; full source paths with `includeDetails` |
 | `refresh_database` | Optional manual refresh; `force: true` reprojects unchanged files |
 | `list_characters` | Names and identities, filterable by name/account/server |
 | `get_character_state` | Latest character summary or selected research, champion, statistics, skills or equipment section, with observation/source times |
 | `search_inventory` | Owned stacks across characters and storage; filter by item/set/location owner |
 | `get_knowledge` | Recipe, plan, motif, grimoire and script knowledge, including unknown results |
 | `list_records` | Discover saved builds, observations, research, collections and metadata |
-| `get_record` | Retrieve a selected detail record, optionally one top-level field |
+| `get_record` | Retrieve a selected detail record without raw Lua `details` by default; request one top-level field or `includeDetails` |
 | `find_sets` | Resolve set names and IDs from imported catalogs |
 | `find_item_definitions` | Resolve item IDs, set membership and supplied trait/equipment metadata |
 | `find_skill_definitions` | Resolve skill IDs when a skill catalog is supplied |
 | `export_saved_build` | Return a stored profile as native CSPS text |
 | `create_csps_equipment_import` | Create an equipment-only native CSPS import from structured slots |
+| `create_csps_available_loadout_import` | Create native CSPS bars and current CP using only abilities observed as purchased; no skill-point purchases |
 | `create_hub_build_import` | Patch bars and CP in an ESO-Hub build link for CSPS Import Link |
 | `create_crafting_import` | Encode resolved item IDs, level, quality, style and optional enchantment into Lazy Set Crafter links |
 | `refresh_item_metadata` | Explicitly download item metadata for selected local LibSets set IDs into SQLite |
 | `create_semantic_crafting_import` | Resolve set/piece/trait choices from SQLite and create one per-item-glyph crafting import |
 
-List/search tools use `offset` and `limit` (1–200) and return `hasMore`. Character keys and record keys are opaque strings returned by the tools. Use canonical server `EU` or `NA`; `EU Megaserver`/`NA Megaserver` source labels are normalized during import. Other world labels are preserved. Names can change without changing identity. Accounts and servers are separate ownership pools.
+List/search tools return compact rows by default, with a 25-row page. Use `offset` and `limit` (1–200) to page. Pass `includeDetails: true` when you need full source IDs, timestamps, localized names, original item links or definition JSON. The compact item-definition rows still expose available `equip_type`, `armor_type`, `weapon_type` and `trait` selectors. `get_record` omits the potentially enormous raw Lua `details` field by default and marks it in `_omittedFields`; use `field: "details"` or `includeDetails: true` only when needed. `get_character_state(section: "all")` intentionally returns every normalized section and can also be large; request a specific section for ordinary work.
+
+Character keys and record keys are opaque strings returned by the tools. Use canonical server `EU` or `NA`; `EU Megaserver`/`NA Megaserver` source labels are normalized during import. Other world labels are preserved. Names can change without changing identity. Accounts and servers are separate ownership pools.
 
 Example requests to an assistant:
 
