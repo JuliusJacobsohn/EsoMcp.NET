@@ -132,6 +132,10 @@ public sealed class RefreshTests
         lines.SkillLines.AddRange([new(7, "First", "Dragonknight", "{}"),
             new(8, "Second", "Dragonknight", "{}"), new(9, "Third", "Dragonknight", "{}"),
             new(35, "Other", "Sorcerer", "{}")]);
+        lines.Skills.AddRange([new(101, "Morph", """{"id":101,"baseAbilityId":100,"rank":1,"morph":2,"isPassive":false}"""),
+            new(102, "Base", """{"id":102,"baseAbilityId":102,"rank":1,"morph":0,"isPassive":false}"""),
+            new(201, "Passive", """{"id":201,"baseAbilityId":200,"rank":2,"morph":0,"isPassive":true}"""),
+            new(202, "Passive2", """{"id":202,"baseAbilityId":202,"rank":1,"morph":0,"isPassive":true}""")]);
         work.Database.Replace(lines);
         var tools = new ExportTools(work.Database, new GameExports());
         var plan = new CspsRespecPlan([new(101, 2), new(102, 0)], [new(201, 2), new(202, 1)],
@@ -147,7 +151,8 @@ public sealed class RefreshTests
         Assert.Equal(2, build.Skills!.Active.Count);
         Assert.Equal(2, build.Skills.Passive.Count);
         Assert.Equal(new long[] { 7, 8, 9 }, build.Skills.Subclasses);
-        Assert.Equal(101, build.Bars![0][0]!.AbilityId);
+        Assert.Equal(100, build.Bars![0][0]!.AbilityId);
+        Assert.Equal(200, build.Skills.Passive[0].AbilityId);
         Assert.Equal(new EsoData.Models.Attributes(16, 48, 0), build.Attributes);
         Assert.Null(build.Gear);
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,

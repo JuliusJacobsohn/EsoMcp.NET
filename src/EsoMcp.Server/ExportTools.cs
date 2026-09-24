@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using EsoData.Catalogs;
 using EsoData.Formats;
 using EsoMcp.Core;
 using ModelContextProtocol.Server;
@@ -91,7 +92,7 @@ public sealed class ExportTools(Database database, IGameExports exports)
     });
 
     [McpServerTool(Name = "create_csps_respec_import", ReadOnly = true, OpenWorld = false)]
-    [Description("Create one native CSPS import for a full skill respec, two bars, attributes and all Champion Points. ClassSkillLineIds must be the character's three current skill-line IDs, resolved from game metadata, not class IDs or skill-line indices. Checks the character's observed total skill points and CP budget; it does not infer unlock requirements, apply the build in game or change equipment. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
+    [Description("Create one native CSPS import for a full skill respec, two bars, attributes and all Champion Points. Run refresh_skill_metadata for the selected ability IDs first. ClassSkillLineIds must be the character's three native skill-line IDs, resolved with find_skill_lines. Validates class ownership, canonicalizes CSPS base IDs, and checks observed skill/CP budgets; it cannot guarantee an unobserved unlock or apply the build in game. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
     public string Respec(string characterKey, CspsRespecPlan plan) => ToolResult.Json(() =>
     {
         var skillsView = database.CharacterState(characterKey, "skills");
@@ -139,15 +140,36 @@ public sealed class ExportTools(Database database, IGameExports exports)
         if (plan.ChampionSlots.Length != 12 || plan.ChampionSlots.Any(id => id is > 0 &&
             !plan.ChampionPoints.Any(x => x.SkillId == id)))
             throw new ArgumentException("Champion slots need twelve IDs, each with allocated points.");
+        var catalog = new GameCatalog();
+        foreach (var id in plan.Active.Select(x => x.AbilityId).Concat(plan.Passive.Select(x => x.AbilityId)).Distinct())
+        {
+            var row = database.Skills(skillId: id).Rows.SingleOrDefault();
+            if (row is null) throw new ArgumentException($"Ability {id} is absent from the local catalog. Run refresh_skill_metadata first.");
+            catalog.Skills[id] = JsonSerializer.Deserialize<SkillDefinition>((JsonElement)row["data_json"]!, DataJson.Options)
+                ?? throw new FormatException($"Ability {id} has invalid metadata.");
+        }
+        var selectedActives = plan.Active.ToDictionary(x => x.AbilityId, x =>
+        {
+            var skill = catalog.Skills[x.AbilityId];
+            if (skill.IsPassive != false || skill.Morph != x.Morph)
+                throw new ArgumentException($"Ability {x.AbilityId} does not match active morph {x.Morph}.");
+            return catalog.ToActiveSkill(x.AbilityId);
+        });
+        var selectedPassives = plan.Passive.Select(x =>
+        {
+            var skill = catalog.Skills[x.AbilityId];
+            if (skill.IsPassive != true || skill.BaseAbilityId is not > 0 || x.Rank > skill.Rank)
+                throw new ArgumentException($"Passive {x.AbilityId} does not support rank {x.Rank} in the local metadata.");
+            return new PassiveSkill(skill.BaseAbilityId.Value, x.Rank);
+        }).ToArray();
         var build = new CspsBuild
         {
-            Skills = new CspsSkills(plan.Active.Select(x => new ActiveSkill(x.AbilityId, x.Morph)).ToArray(),
-                plan.Passive.Select(x => new PassiveSkill(x.AbilityId, x.Rank)).ToArray(),
+            Skills = new CspsSkills(plan.Active.Select(x => selectedActives[x.AbilityId]).ToArray(), selectedPassives,
                 Subclasses: plan.ClassSkillLineIds),
             Bars = new IReadOnlyList<BarSlot?>[]
             {
-                plan.FrontBar.Select(x => (BarSlot?)new BarSlot(x)).ToArray(),
-                plan.BackBar.Select(x => (BarSlot?)new BarSlot(x)).ToArray()
+                plan.FrontBar.Select(x => (BarSlot?)catalog.ToBarSlot(x)).ToArray(),
+                plan.BackBar.Select(x => (BarSlot?)catalog.ToBarSlot(x)).ToArray()
             },
             Attributes = new EsoData.Models.Attributes(plan.Health, plan.Magicka, plan.Stamina),
             ChampionPoints = new CspsChampionPoints(

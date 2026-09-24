@@ -72,13 +72,15 @@ The server uses stdio: the MCP client launches it as needed, and stdout carries 
 | `find_sets` | Resolve set names and IDs from imported catalogs |
 | `find_item_definitions` | Resolve item IDs, set membership and supplied trait/equipment metadata |
 | `find_skill_definitions` | Resolve skill IDs when a skill catalog is supplied |
+| `find_skill_lines` | Resolve class skill-line IDs from refreshed metadata, including class ownership |
 | `export_saved_build` | Return a stored profile as native CSPS text |
 | `create_csps_equipment_import` | Create an equipment-only native CSPS import from structured slots |
 | `create_csps_available_loadout_import` | Create native CSPS bars and current CP using only abilities observed as purchased; no skill-point purchases |
-| `create_csps_respec_import` | Create a complete CSPS skill-purchase, bar, attribute and CP respec plan checked against observed point budgets; leaves gear unchanged |
+| `create_csps_respec_import` | Create a complete CSPS skill-purchase, bar, attribute and CP respec plan checked against observed point budgets and class skill lines; leaves gear unchanged |
 | `create_hub_build_import` | Patch bars and CP in an ESO-Hub build link for CSPS Import Link |
 | `create_crafting_import` | Encode resolved item IDs, level, quality, style and optional enchantment into Lazy Set Crafter links |
 | `refresh_item_metadata` | Explicitly download item metadata for selected local LibSets set IDs into SQLite |
+| `refresh_skill_metadata` | Explicitly download current UESP skill-line IDs and selected ability definitions into SQLite |
 | `create_semantic_crafting_import` | Resolve set/piece/trait choices from SQLite and create one per-item-glyph crafting import |
 
 List/search tools return compact rows by default, with a 25-row page. Use `offset` and `limit` (1–200) to page. Pass `includeDetails: true` when you need full source IDs, timestamps, localized names, original item links or definition JSON. The compact item-definition rows still expose available `equip_type`, `armor_type`, `weapon_type` and `trait` selectors. `get_record` omits the potentially enormous raw Lua `details` field by default and marks it in `_omittedFields`; use `field: "details"` or `includeDetails: true` only when needed. `get_character_state(section: "all")` intentionally returns every normalized section and can also be large; request a specific section for ordinary work.
