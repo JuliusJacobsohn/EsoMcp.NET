@@ -114,6 +114,43 @@ public sealed class RefreshTests
     }
 
     [Fact]
+    public async Task RespecImportIncludesPurchasesBarsAttributesAndFullCpWithinObservedBudget()
+    {
+        using var work = new TestWorkspace();
+        work.Write("uespLog.lua", """
+            uespLogSavedVars={Default={['@Example']={charData={data={CharName='Observer',CharId='123',
+              AccountName='@Example',WorldName='NA Megaserver',TimeStamp=100,
+              SkillPointsTotal=8,SkillPointsUnused=0,
+              Skills={['1:1:1']={id=101,rank=3,type='active'}},
+              ChampionPoints2={['Total:Spent']=20,['Total:Unspent']=1,
+                ['Craft:Steed']={skillId=66,points=20}}
+            }}}}}
+            """);
+        await work.Refresh.RefreshAsync();
+        var key = (string)Assert.Single(work.Database.Characters(name: "Observer").Rows)["character_key"]!;
+        var tools = new ExportTools(work.Database, new GameExports());
+        var plan = new CspsRespecPlan([new(101, 2), new(102, 0)], [new(201, 2), new(202, 1)],
+            [101, 102, 101, 102, 101, 102], [102, 101, 102, 101, 102, 101],
+            [new(66, 21)], [66, null, null, null, null, null, null, null, null, null, null, null],
+            16, 48, 0);
+        using var output = JsonDocument.Parse(tools.Respec(key, plan));
+        var root = output.RootElement;
+        var build = CspsBuild.Parse(root.GetProperty("text").GetString()!);
+        Assert.Equal(6, root.GetProperty("plannedSkillPoints").GetInt32());
+        Assert.Equal(2, root.GetProperty("remainingSkillPoints").GetInt32());
+        Assert.Equal(21, root.GetProperty("plannedChampionPoints").GetInt32());
+        Assert.Equal(2, build.Skills!.Active.Count);
+        Assert.Equal(2, build.Skills.Passive.Count);
+        Assert.Equal(101, build.Bars![0][0]!.AbilityId);
+        Assert.Equal(new EsoData.Models.Attributes(16, 48, 0), build.Attributes);
+        Assert.Null(build.Gear);
+        Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
+            plan with { Passive = [new(201, 3), new(202, 3)] }));
+        Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
+            plan with { ChampionPoints = [new(66, 20)] }));
+    }
+
+    [Fact]
     public async Task CatalogRefreshReplacesDefinitionsAndQueriesNeedNoCatalogFile()
     {
         using var work = new TestWorkspace();

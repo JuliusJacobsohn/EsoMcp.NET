@@ -40,6 +40,13 @@ public sealed record CraftingPlanItem(long SetId, int? EquipType = null, int? Ar
 /// <summary>One native CSPS equipment slot. Type is armor type for body slots and weapon type for hand slots.</summary>
 public sealed record CspsEquipmentItem(int EquipSlot, long SetId, int Type, int Trait, int Quality,
     long EnchantmentEffectId);
+/// <summary>A complete native CSPS respec plan using resolved game IDs, with gear left untouched.</summary>
+public sealed record CspsRespecPlan(CspsActivePurchase[] Active, CspsPassivePurchase[] Passive,
+    long[] FrontBar, long[] BackBar, CspsChampionAllocation[] ChampionPoints, long?[] ChampionSlots,
+    int Health, int Magicka, int Stamina);
+public sealed record CspsActivePurchase(long AbilityId, int Morph);
+public sealed record CspsPassivePurchase(long AbilityId, int Rank);
+public sealed record CspsChampionAllocation(long SkillId, int Points);
 /// <summary>Optional ESO-Hub build-editor changes to a supplied addondata template.</summary>
 public sealed record HubBuildPatch(string Template, HubAbilitySlot?[]? FrontBar = null,
     HubAbilitySlot?[]? BackBar = null, HubChampionPoint?[]? SlottedChampionPoints = null,

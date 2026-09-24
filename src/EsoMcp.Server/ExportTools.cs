@@ -90,6 +90,67 @@ public sealed class ExportTools(Database database, IGameExports exports)
         };
     });
 
+    [McpServerTool(Name = "create_csps_respec_import", ReadOnly = true, OpenWorld = false)]
+    [Description("Create one native CSPS import for a full skill respec, two bars, attributes and all Champion Points. Uses resolved game IDs supplied by the caller. Checks the character's observed total skill points and CP budget; it does not infer unlock requirements, apply the build in game or change equipment. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
+    public string Respec(string characterKey, CspsRespecPlan plan) => ToolResult.Json(() =>
+    {
+        var skillsView = database.CharacterState(characterKey, "skills");
+        var championView = database.CharacterState(characterKey, "champion");
+        if (!skillsView.Available || !championView.Available)
+            throw new ArgumentException("Current skill and CP observations are required for this character.");
+        var skills = (IReadOnlyDictionary<string, JsonElement>)skillsView.Data!;
+        var champion = (JsonElement)championView.Data!;
+        var totalSkills = skills["totalSkillPoints"].GetInt32();
+        var totalCp = champion.GetProperty("spentPoints").GetInt32() + champion.GetProperty("unspentPoints").GetInt32();
+        if (plan.Active.Length == 0 || plan.Active.Any(x => x.AbilityId <= 0 || x.Morph is < 0 or > 2)
+            || plan.Active.Select(x => x.AbilityId).Distinct().Count() != plan.Active.Length)
+            throw new ArgumentException("Active skills need distinct positive IDs and morph 0, 1 or 2.");
+        if (plan.Passive.Any(x => x.AbilityId <= 0 || x.Rank is < 1 or > 3)
+            || plan.Passive.Select(x => x.AbilityId).Distinct().Count() != plan.Passive.Length)
+            throw new ArgumentException("Passive skills need distinct positive IDs and rank 1, 2 or 3.");
+        if (plan.FrontBar.Length != 6 || plan.BackBar.Length != 6 ||
+            plan.FrontBar.Concat(plan.BackBar).Any(id => id <= 0 || !plan.Active.Any(x => x.AbilityId == id)))
+            throw new ArgumentException("Each bar needs six purchased active IDs.");
+        if (plan.Health < 0 || plan.Magicka < 0 || plan.Stamina < 0 ||
+            plan.Health + plan.Magicka + plan.Stamina != 64)
+            throw new ArgumentException("Attributes must allocate exactly 64 points.");
+        var plannedSkills = plan.Active.Sum(x => 1 + (x.Morph == 0 ? 0 : 1)) + plan.Passive.Sum(x => x.Rank);
+        if (plannedSkills > totalSkills)
+            throw new ArgumentException($"Plan needs {plannedSkills} skill points, but {totalSkills} are observed.");
+        if (plan.ChampionPoints.Length == 0 || plan.ChampionPoints.Any(x => x.SkillId <= 0 || x.Points <= 0)
+            || plan.ChampionPoints.Select(x => x.SkillId).Distinct().Count() != plan.ChampionPoints.Length)
+            throw new ArgumentException("Champion allocations need distinct positive IDs and points.");
+        var plannedCp = plan.ChampionPoints.Sum(x => x.Points);
+        if (plannedCp != totalCp)
+            throw new ArgumentException($"Plan allocates {plannedCp} CP, but {totalCp} are observed.");
+        if (plan.ChampionSlots.Length != 12 || plan.ChampionSlots.Any(id => id is > 0 &&
+            !plan.ChampionPoints.Any(x => x.SkillId == id)))
+            throw new ArgumentException("Champion slots need twelve IDs, each with allocated points.");
+        var build = new CspsBuild
+        {
+            Skills = new CspsSkills(plan.Active.Select(x => new ActiveSkill(x.AbilityId, x.Morph)).ToArray(),
+                plan.Passive.Select(x => new PassiveSkill(x.AbilityId, x.Rank)).ToArray()),
+            Bars = new IReadOnlyList<BarSlot?>[]
+            {
+                plan.FrontBar.Select(x => (BarSlot?)new BarSlot(x)).ToArray(),
+                plan.BackBar.Select(x => (BarSlot?)new BarSlot(x)).ToArray()
+            },
+            Attributes = new EsoData.Models.Attributes(plan.Health, plan.Magicka, plan.Stamina),
+            ChampionPoints = new CspsChampionPoints(
+                plan.ChampionPoints.Select(x => new ChampionStar(x.SkillId, x.Points)).ToArray(),
+                Enumerable.Range(0, 3).Select(bar => (IReadOnlyList<long?>)plan.ChampionSlots
+                    .Skip(bar * 4).Take(4).ToArray()).ToArray())
+        };
+        return new
+        {
+            Format = "CSPS", Text = build.ToString(),
+            Sections = new[] { "skills", "ability bar", "stats", "champion points" },
+            TotalSkillPoints = totalSkills, PlannedSkillPoints = plannedSkills,
+            RemainingSkillPoints = totalSkills - plannedSkills, PlannedChampionPoints = plannedCp,
+            ObservedAt = skillsView.Observation!["observed_at"], AppliedInGame = false
+        };
+    });
+
     [McpServerTool(Name = "create_hub_build_import", ReadOnly = true, OpenWorld = false)]
     [Description("Patch bars and Champion Points in an existing ESO-Hub addondata string or build-editor URL, then return import text and URL for CSPS Import Link. Six positions per bar, twelve CP slots in Craft/Warfare/Fitness order. Omitted sections stay as in the template. Does not apply or validate the build in game.")]
     public string HubBuild(HubBuildPatch patch) => ToolResult.Json(() =>
