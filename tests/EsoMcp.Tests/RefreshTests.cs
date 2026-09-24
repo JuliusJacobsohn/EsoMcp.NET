@@ -108,6 +108,9 @@ public sealed class RefreshTests
         Assert.Equal(20, Assert.Single(build.ChampionPoints.Allocations).Points);
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.AvailableLoadout(key,
             [101, 102, 101, 102, 101, 999], [102, 101, 102, 101, 102, 101]));
+        Assert.Throws<ModelContextProtocol.McpException>(() => tools.AvailableLoadout(key,
+            [101, 102, 101, 102, 101, 102], [102, 101, 102, 101, 102, 101],
+            [999, null, null, null, null, null, null, null, null, null, null, null]));
     }
 
     [Fact]

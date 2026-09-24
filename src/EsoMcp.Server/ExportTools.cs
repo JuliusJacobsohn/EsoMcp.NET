@@ -35,8 +35,8 @@ public sealed class ExportTools(Database database, IGameExports exports)
     });
 
     [McpServerTool(Name = "create_csps_available_loadout_import", ReadOnly = true, OpenWorld = false)]
-    [Description("Create native CSPS text with two ability bars and the character's currently allocated CP. Every requested ability must be an observed purchased active skill; no skill purchases, gear, attributes or other sections are imported. CP mirrors the last disk save, including its unspent points. Import as CSPS text and apply Ability Bar and Champion Points only.")]
-    public string AvailableLoadout(string characterKey, long[] frontBar, long[] backBar) => ToolResult.Json(() =>
+    [Description("Create native CSPS text with two ability bars and the character's currently allocated CP. Every requested ability must be an observed purchased active skill. Optional championSlots has 12 CP star IDs in Craft/Warfare/Fitness order and may only slot stars that already have points. No skill purchases, gear, attributes or other sections are imported. CP point amounts mirror the last disk save, including unspent points. Import as CSPS text and apply Ability Bar and Champion Points only.")]
+    public string AvailableLoadout(string characterKey, long[] frontBar, long[] backBar, long?[]? championSlots = null) => ToolResult.Json(() =>
     {
         if (frontBar.Length != 6 || backBar.Length != 6)
             throw new ArgumentException("Each ability bar needs five skills and one ultimate.");
@@ -56,10 +56,16 @@ public sealed class ExportTools(Database database, IGameExports exports)
             .Select(x => new ChampionStar(x.GetProperty("skillId").GetInt64(), x.GetProperty("points").GetInt32()))
             .ToArray();
         var slots = champion.GetProperty("slots");
+        if (championSlots is not null && championSlots.Length != 12)
+            throw new ArgumentException("championSlots must have twelve positions.");
+        var allocated = allocations.Where(x => x.Points > 0).Select(x => x.Id).ToHashSet();
+        if (championSlots is not null && championSlots.Any(id => id is > 0 && !allocated.Contains(id.Value)))
+            throw new ArgumentException("championSlots may only contain stars with observed allocated points.");
         var cpBars = Enumerable.Range(0, 3).Select(bar =>
             (IReadOnlyList<long?>)Enumerable.Range(1, 4).Select(slot =>
             {
-                var id = slots.GetProperty((bar * 4 + slot).ToString()).GetInt64();
+                var id = championSlots is null ? slots.GetProperty((bar * 4 + slot).ToString()).GetInt64()
+                    : championSlots[bar * 4 + slot - 1] ?? 0;
                 return id == 0 ? (long?)null : id;
             }).ToArray()).ToArray();
         var build = new CspsBuild
