@@ -19,7 +19,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - run: dotnet build EsoMcp.sln -c Release
+      - run: pwsh -File scripts/Restore-EsoData.ps1
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: dotnet build EsoMcp.sln -c Release --no-restore
       - run: dotnet test EsoMcp.sln -c Release --no-build
       - run: python scripts/smoke_mcp.py
       - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false

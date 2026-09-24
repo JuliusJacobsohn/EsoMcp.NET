@@ -23,7 +23,10 @@ jobs:
         run: |
           version=$(dotnet msbuild src/EsoMcp.Server/EsoMcp.Server.csproj -nologo -getProperty:Version)
           test "$GITHUB_REF_NAME" = "v$version"
-      - run: dotnet build EsoMcp.sln -c Release
+      - run: pwsh -File scripts/Restore-EsoData.ps1
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: dotnet build EsoMcp.sln -c Release --no-restore
       - run: dotnet test EsoMcp.sln -c Release --no-build
       - run: python scripts/smoke_mcp.py
       - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false
