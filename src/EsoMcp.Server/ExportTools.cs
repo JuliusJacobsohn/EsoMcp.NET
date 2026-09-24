@@ -91,7 +91,7 @@ public sealed class ExportTools(Database database, IGameExports exports)
     });
 
     [McpServerTool(Name = "create_csps_respec_import", ReadOnly = true, OpenWorld = false)]
-    [Description("Create one native CSPS import for a full skill respec, two bars, attributes and all Champion Points. Uses resolved game IDs supplied by the caller. Checks the character's observed total skill points and CP budget; it does not infer unlock requirements, apply the build in game or change equipment. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
+    [Description("Create one native CSPS import for a full skill respec, two bars, attributes and all Champion Points. ClassSkillLineIds must be the character's three current skill-line IDs, resolved from game metadata, not class IDs or skill-line indices. Checks the character's observed total skill points and CP budget; it does not infer unlock requirements, apply the build in game or change equipment. Import as CSPS text, selecting Skills, Ability Bar, Stats and Champion Points only.")]
     public string Respec(string characterKey, CspsRespecPlan plan) => ToolResult.Json(() =>
     {
         var skillsView = database.CharacterState(characterKey, "skills");
@@ -108,6 +108,10 @@ public sealed class ExportTools(Database database, IGameExports exports)
         if (plan.Passive.Any(x => x.AbilityId <= 0 || x.Rank is < 1 or > 3)
             || plan.Passive.Select(x => x.AbilityId).Distinct().Count() != plan.Passive.Length)
             throw new ArgumentException("Passive skills need distinct positive IDs and rank 1, 2 or 3.");
+        if (plan.ClassSkillLineIds is not { Length: 3 }
+            || plan.ClassSkillLineIds.Any(id => id <= 0)
+            || plan.ClassSkillLineIds.Distinct().Count() != 3)
+            throw new ArgumentException("Supply three distinct positive current class skill-line IDs. These are not class IDs or line indices.");
         if (plan.FrontBar.Length != 6 || plan.BackBar.Length != 6 ||
             plan.FrontBar.Concat(plan.BackBar).Any(id => id <= 0 || !plan.Active.Any(x => x.AbilityId == id)))
             throw new ArgumentException("Each bar needs six purchased active IDs.");
@@ -129,7 +133,8 @@ public sealed class ExportTools(Database database, IGameExports exports)
         var build = new CspsBuild
         {
             Skills = new CspsSkills(plan.Active.Select(x => new ActiveSkill(x.AbilityId, x.Morph)).ToArray(),
-                plan.Passive.Select(x => new PassiveSkill(x.AbilityId, x.Rank)).ToArray()),
+                plan.Passive.Select(x => new PassiveSkill(x.AbilityId, x.Rank)).ToArray(),
+                Subclasses: plan.ClassSkillLineIds),
             Bars = new IReadOnlyList<BarSlot?>[]
             {
                 plan.FrontBar.Select(x => (BarSlot?)new BarSlot(x)).ToArray(),
