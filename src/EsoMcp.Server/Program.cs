@@ -25,8 +25,9 @@ try
     builder.Services.AddSingleton<IRefreshService>(importer);
     builder.Services.AddSingleton<IGameExports, GameExports>();
     builder.Services.AddSingleton<ICraftingCatalog, CraftingCatalogService>();
+    builder.Services.AddSingleton<ISkillCatalog, SkillCatalogService>();
     builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<DatabaseTools>().WithTools<ExportTools>()
-        .WithTools<CraftingPlanTools>()
+        .WithTools<CraftingPlanTools>().WithTools<SkillCatalogTools>()
         .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, cancellationToken) =>
         {
             // Refresh once before database-backed tools; tool implementations remain database-only.

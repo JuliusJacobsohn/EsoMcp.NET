@@ -44,6 +44,9 @@ public sealed partial class Database
                 source.Key, i.Id, i.SetId, i.Name, i.EquipType, i.Trait, i.Json);
         foreach (var s in batch.Skills)
             writer.Insert("catalog_skills", "source_key,skill_id,name,data_json", source.Key, s.Id, s.Name, s.Json);
+        foreach (var line in batch.SkillLines)
+            writer.Insert("catalog_skill_lines", "source_key,skill_line_id,name,class_type,data_json",
+                source.Key, line.Id, line.Name, line.ClassType, line.Json);
         cancellationToken.ThrowIfCancellationRequested();
         transaction.Commit();
     }

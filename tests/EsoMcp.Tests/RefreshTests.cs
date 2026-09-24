@@ -118,7 +118,7 @@ public sealed class RefreshTests
     {
         using var work = new TestWorkspace();
         work.Write("uespLog.lua", """
-            uespLogSavedVars={Default={['@Example']={charData={data={CharName='Observer',CharId='123',
+            uespLogSavedVars={Default={['@Example']={charData={data={CharName='Observer',CharId='123',Class='Dragonknight',
               AccountName='@Example',WorldName='NA Megaserver',TimeStamp=100,
               SkillPointsTotal=8,SkillPointsUnused=0,
               Skills={['1:1:1']={id=101,rank=3,type='active'}},
@@ -128,6 +128,11 @@ public sealed class RefreshTests
             """);
         await work.Refresh.RefreshAsync();
         var key = (string)Assert.Single(work.Database.Characters(name: "Observer").Rows)["character_key"]!;
+        var lines = work.Batch("skill-lines");
+        lines.SkillLines.AddRange([new(7, "First", "Dragonknight", "{}"),
+            new(8, "Second", "Dragonknight", "{}"), new(9, "Third", "Dragonknight", "{}"),
+            new(35, "Other", "Sorcerer", "{}")]);
+        work.Database.Replace(lines);
         var tools = new ExportTools(work.Database, new GameExports());
         var plan = new CspsRespecPlan([new(101, 2), new(102, 0)], [new(201, 2), new(202, 1)],
             [101, 102, 101, 102, 101, 102], [102, 101, 102, 101, 102, 101],
@@ -151,6 +156,8 @@ public sealed class RefreshTests
             plan with { ChampionPoints = [new(66, 20)] }));
         Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
             plan with { ClassSkillLineIds = [35, 35, 37] }));
+        Assert.Throws<ModelContextProtocol.McpException>(() => tools.Respec(key,
+            plan with { ClassSkillLineIds = [7, 8, 35] }));
     }
 
     [Fact]

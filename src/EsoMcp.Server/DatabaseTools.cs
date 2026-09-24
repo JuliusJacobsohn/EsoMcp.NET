@@ -75,6 +75,13 @@ public sealed class DatabaseTools(Database database, IRefreshService refresh)
     [Description("Resolve skill IDs from imported catalogs, if present. Default page is 25; limit 1..200. Set includeDetails for full definition JSON and source ID. Observed skills belong to character_state records.")]
     public string Skills(string? text = null, long? skillId = null, int offset = 0, int limit = 25, bool includeDetails = false) =>
         ToolResult.Json(() => CompactResults.Page(database.Skills(text, skillId, offset, limit), includeDetails, "skill_id", "name"));
+
+    [McpServerTool(Name = "find_skill_lines", ReadOnly = true, OpenWorld = false)]
+    [Description("Resolve current skill-line IDs from imported metadata, optionally filtering by class name. Run refresh_skill_metadata first. IDs here are the class skill-line IDs required by native CSPS subclass fields, not class IDs or indices.")]
+    public string SkillLines(string? classType = null, long? skillLineId = null, int offset = 0, int limit = 25,
+        bool includeDetails = false) => ToolResult.Json(() => CompactResults.Page(
+            database.SkillLines(classType, skillLineId, offset, limit), includeDetails,
+            "skill_line_id", "name", "class_type"));
 }
 
 internal static class ToolResult

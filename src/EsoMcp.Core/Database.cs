@@ -79,6 +79,9 @@ public sealed partial class Database
         CREATE TABLE IF NOT EXISTS catalog_skills(
           source_key TEXT NOT NULL REFERENCES sources ON DELETE CASCADE,skill_id INTEGER NOT NULL,name TEXT,data_json TEXT NOT NULL,
           PRIMARY KEY(source_key,skill_id));
+        CREATE TABLE IF NOT EXISTS catalog_skill_lines(
+          source_key TEXT NOT NULL REFERENCES sources ON DELETE CASCADE,skill_line_id INTEGER NOT NULL,
+          name TEXT NOT NULL,class_type TEXT,data_json TEXT NOT NULL,PRIMARY KEY(source_key,skill_line_id));
         PRAGMA user_version=1;
         """;
 }

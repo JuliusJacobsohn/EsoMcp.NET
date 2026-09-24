@@ -128,6 +128,15 @@ public sealed partial class Database
         ORDER BY name,skill_id
         """, offset, limit, ("text", text), ("id", skillId));
 
+    public Page SkillLines(string? classType = null, long? skillLineId = null, int offset = 0, int limit = 50) => Paged("""
+        WITH ranked AS (
+          SELECT c.*,ROW_NUMBER() OVER(PARTITION BY skill_line_id ORDER BY s.priority DESC,s.modified_at DESC,s.source_key) AS rn
+          FROM catalog_skill_lines c JOIN sources s USING(source_key))
+        SELECT skill_line_id,name,class_type,data_json,source_key FROM ranked WHERE rn=1
+          AND ($class IS NULL OR class_type=$class) AND ($id IS NULL OR skill_line_id=$id)
+        ORDER BY class_type,name,skill_line_id
+        """, offset, limit, ("class", classType), ("id", skillLineId));
+
     private Page Paged(string sql, int offset, int limit, params (string Key, object? Value)[] parameters)
     {
         if (offset < 0 || limit is < 1 or > 200) throw new ArgumentOutOfRangeException(nameof(limit), "offset >= 0; limit must be 1..200.");

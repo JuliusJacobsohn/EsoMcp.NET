@@ -112,6 +112,15 @@ public sealed class ExportTools(Database database, IGameExports exports)
             || plan.ClassSkillLineIds.Any(id => id <= 0)
             || plan.ClassSkillLineIds.Distinct().Count() != 3)
             throw new ArgumentException("Supply three distinct positive current class skill-line IDs. These are not class IDs or line indices.");
+        var character = (IReadOnlyDictionary<string, JsonElement>)database.CharacterState(characterKey, "all").Data!;
+        var className = character["class"].GetString();
+        foreach (var id in plan.ClassSkillLineIds)
+        {
+            var row = database.SkillLines(skillLineId: id).Rows.SingleOrDefault();
+            if (row is null) throw new ArgumentException($"Skill-line ID {id} is absent from the local catalog. Run refresh_skill_metadata first.");
+            if ((string?)row["class_type"] != className || ((string?)row["name"])?.StartsWith("Class Mastery", StringComparison.OrdinalIgnoreCase) == true)
+                throw new ArgumentException($"Skill-line ID {id} is not one of {className}'s three native class lines.");
+        }
         if (plan.FrontBar.Length != 6 || plan.BackBar.Length != 6 ||
             plan.FrontBar.Concat(plan.BackBar).Any(id => id <= 0 || !plan.Active.Any(x => x.AbilityId == id)))
             throw new ArgumentException("Each bar needs six purchased active IDs.");
