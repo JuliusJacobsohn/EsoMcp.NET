@@ -96,7 +96,7 @@ def main():
                                                         "clientInfo": {"name": "EsoMcp smoke test", "version": "1.0"}})
             client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             tools = client.request("tools/list")["tools"]
-            assert len(tools) == 16, [t["name"] for t in tools]
+            assert len(tools) == 17, [t["name"] for t in tools]
             # A normal query must populate an empty database without an explicit refresh.
             characters = client.call("list_characters")
             assert characters["rows"], characters
@@ -122,6 +122,13 @@ def main():
                  "enchantmentEffectId": 146}
             ]})
             assert equipment["text"].startswith("-#-#-#-#-#642:2:11:4:146;")
+            hub = client.call("create_hub_build_import", {"patch": {
+                "template": "1;6;2;64:0:0;0;0;35,36,37;1,2,3,4,5,6;7,8,9,10,11,12;0;0,0,0,0,0,0,0,0,0,0,0,0;0;0;0;0",
+                "frontBar": [{"abilityId": 21}, {"abilityId": 22}, None, None, None, {"abilityId": 26}],
+                "slottedChampionPoints": [{"skillId": 66, "points": 50}] + [None] * 11,
+                "otherChampionPoints": [{"skillId": 10, "points": 14}]
+            }})
+            assert "21,22,0,0,0,26" in hub["text"] and "addondata=" in hub["url"]
             client.call("create_crafting_import", {"itemIds": [900001], "level": 33, "quality": 4}, expect_error=True)
             client.call("list_characters", {"limit": 1000}, expect_error=True)
             client.call("get_record", {"recordKey": "does-not-exist"}, expect_error=True)

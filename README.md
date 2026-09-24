@@ -74,6 +74,7 @@ The server uses stdio: the MCP client launches it as needed, and stdout carries 
 | `find_skill_definitions` | Resolve skill IDs when a skill catalog is supplied |
 | `export_saved_build` | Return a stored profile as native CSPS text |
 | `create_csps_equipment_import` | Create an equipment-only native CSPS import from structured slots |
+| `create_hub_build_import` | Patch bars and CP in an ESO-Hub build link for CSPS Import Link |
 | `create_crafting_import` | Encode resolved item IDs, level, quality, style and optional enchantment into Lazy Set Crafter links |
 | `refresh_item_metadata` | Explicitly download item metadata for selected local LibSets set IDs into SQLite |
 | `create_semantic_crafting_import` | Resolve set/piece/trait choices from SQLite and create one per-item-glyph crafting import |
