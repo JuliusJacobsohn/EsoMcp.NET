@@ -9,6 +9,8 @@
 
 A local **.NET 10** MCP server for Elder Scrolls Online. It lets an AI assistant query your characters, account inventory, crafting knowledge and saved builds from SQLite. Before each database-backed tool call, changed addon files are automatically imported using [EsoData.NET](https://github.com/JuliusJacobsohn/EsoData.NET).
 
+The [replacement architecture](docs/account-architecture.md) defines fresh account loading, editable named builds and compact batched tools without a required SQLite projection. It is not implemented in the current release documented below.
+
 No hosted service, account signup, SQL Server, game injection or custom ESO addon is needed. Your data stays on your computer; no account data or game catalog is distributed in this repository.
 
 ## How it works
