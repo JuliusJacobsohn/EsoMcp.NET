@@ -97,6 +97,8 @@ It compares the chosen revision with newly observed data and returns differences
 
 ## Targets, requirements and crafting
 
+`edit_build` accepts `patch.target`, a typed guide setup with abilities/scripts, passives, equipment choices, champion selections, masteries and consumables. Creating a guide target starts with an empty executable allocation so the current character's unrelated settings cannot be mistaken for the guide. `action:"read", section:"target"` returns the saved setup. `analyze_build` automatically compares it for `validation` or `differences`; use `targetSection` to filter domains such as `abilities`, `equipment` or `champion`. Unspecified guide point amounts stay null. Trait alternatives stay alternatives. Set-only matches are reported as partial. Export requires a separate, resolved executable build rather than silently exporting incomplete guide data.
+
 A plan stores guide URLs with retrieval dates and variant names. Add explicit requirements with IDs, kinds, priorities, optional flags and dependency IDs. Supported kinds are `Skill`, `SkillLine`, `Knowledge`, `Item`, `Allocation` and `Manual`. Missing source information produces `unknown`. Manual milestones can have a completion value and evidence. Dependencies must refer to existing requirements and cannot form cycles. GitHub issue creation/updating remains the assistant's separate responsibility.
 
 Skill progression and purchased allocation are separate. A refunded skill is not automatically unlearned, but sources do not reveal every unpurchased morph's progression. A maxed base ability does not satisfy a requirement for its morph. Respec analysis uses total points and exposes currently unspent points separately.

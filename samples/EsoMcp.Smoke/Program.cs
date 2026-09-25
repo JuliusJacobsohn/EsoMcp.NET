@@ -68,8 +68,22 @@ try
         if (restored.GetProperty("revision").GetInt32() != 2) throw new InvalidOperationException("Draft did not survive restart.");
         await Call(restarted, "edit_build", new() { ["action"] = "delete", ["id"] = planId, ["expectedRevision"] = 2 });
         planId = null;
+        var discovery = await Call(restarted, "inspect_account");
+        var owner = discovery.GetProperty("accounts")[0].GetProperty("key").GetString()!;
+        var people = await Call(restarted, "inspect_account", new() { ["account"] = owner, ["queries"] = new[] { new { section = "characters" } } });
+        var characterId = people.GetProperty("results")[0].GetProperty("rows")[0].GetProperty("id").GetString()!;
+        var target = await Call(restarted, "edit_build", new() { ["action"] = "create", ["account"] = owner,
+            ["character"] = characterId, ["name"] = "Temporary guide verification", ["patch"] = new { target = new
+            { variant = "Example guide", abilities = new[] { new { slot = "front.1", name = "Example scribed ability", scripts = new { focus = "Taunt", signature = "Heal", affix = "Maim" } } } } } });
+        planId = target.GetProperty("plan").GetProperty("id").GetString()!;
+        var guide = await Call(restarted, "edit_build", new() { ["action"] = "read", ["id"] = planId, ["section"] = "target" });
+        if (guide.GetProperty("abilities")[0].GetProperty("scripts").GetProperty("focus").GetString() != "Taunt") throw new InvalidOperationException("Guide recipe did not survive the protocol.");
+        await Call(restarted, "analyze_build", new() { ["id"] = planId, ["targetSection"] = "abilities" });
+        await Call(restarted, "export_build", new() { ["id"] = planId }, error: true);
+        await Call(restarted, "edit_build", new() { ["action"] = "delete", ["id"] = planId, ["expectedRevision"] = 1 });
+        planId = null;
     }
-    Console.WriteLine("PASS: discovery, fresh reads, atomic editing, conflict protection, export, comparison and restart persistence.");
+    Console.WriteLine("PASS: discovery, fresh reads, atomic editing, conflict protection, export, comparison, restart persistence and complete guide-target serialization.");
     return 0;
 }
 finally

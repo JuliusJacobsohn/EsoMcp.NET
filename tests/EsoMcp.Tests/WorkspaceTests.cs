@@ -10,6 +10,28 @@ namespace EsoMcp.Tests;
 public class WorkspaceTests
 {
     [Fact]
+    public void GuideTargetPersistsWithoutCopyingOrExportingCurrentAllocation()
+    {
+        using var w = new TestWorkspace(); var store = new WorkspaceStore(w.Database.Path);
+        w.Write("uespLog.lua", """
+            uespLogSavedVars={data={CharName="Example",CharId="1",AccountName="@Example",Server="EU",
+            SkillPointsTotal=100,SkillPointsUnused=100,AttributesHealth=64,Skills={}}}
+            """);
+        var workspace = new AccountWorkspace(store, w.Database, new() { Locations = [new(w.Folder)] });
+        var tools = new BuildTools(workspace, store);
+        var created = JsonDocument.Parse(tools.Edit("create", character: "Example", patch: new()
+        {
+            Target = new() { Variant = "Default", Masteries = ["Example mastery"], Attributes = new() { Health = 64 } }
+        }));
+        var id = created.RootElement.GetProperty("plan").GetProperty("id").GetString()!;
+        Assert.Equal(BuildSections.None, store.Plan(id).Build.Sections);
+        Assert.Contains("Example mastery", tools.Edit("read", id, section: "target"));
+        Assert.Contains("guide-target", tools.Analyze(id));
+        Assert.ThrowsAny<Exception>(() => tools.Export(id));
+        Assert.ThrowsAny<Exception>(() => tools.Verify(id, 1));
+        Assert.Equal(1, new WorkspaceStore(w.Database.Path).Plan(id).Revision);
+    }
+    [Fact]
     public void RefreshDoesNotOverwritePlansAndRestartKeepsRevisions()
     {
         using var w = new TestWorkspace(); var store = new WorkspaceStore(w.Database.Path);
