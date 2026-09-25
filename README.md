@@ -7,156 +7,144 @@
 > [!WARNING]
 > Created with substantial help from **OpenAI Codex** and tested against my own use cases. Please do not treat this project as a measure of my abilities as a developer, for better or worse.
 
-A local **.NET 10** MCP server for Elder Scrolls Online. It lets an AI assistant query your characters, account inventory, crafting knowledge and saved builds from SQLite. Before each database-backed tool call, changed addon files are automatically imported using [EsoData.NET](https://github.com/JuliusJacobsohn/EsoData.NET).
+A local **.NET 10 MCP server** for Elder Scrolls Online. Load your account, maintain named target builds, edit them incrementally, compare them with what you own and have learned, and export CSPS or crafting imports.
 
-The [replacement architecture](docs/account-architecture.md) defines fresh account loading, editable named builds and compact batched tools without a required SQLite projection. It is not implemented in the current release documented below.
+[EsoData.NET](https://github.com/JuliusJacobsohn/EsoData.NET) owns parsing, account assembly, typed models, planning and formats. SQLite persists refreshed account documents and authored build plans separately. Every relevant request reads the local addon saves again; refreshing never overwrites plans. No account data is uploaded and no game files are modified.
 
-No hosted service, account signup, SQL Server, game injection or custom ESO addon is needed. Your data stays on your computer; no account data or game catalog is distributed in this repository.
+## Install
 
-## How it works
-
-```text
-SavedVariables + installed catalogs
-                │ refresh changed files before queries
-         EsoData.NET → Import
-                │
-              SQLite ← MCP queries
-```
-
-A shared request handler refreshes sources before database-backed tools run; the tools themselves use SQLite only. Content hashes skip unchanged files. Queries still work after sources become unavailable, using their last successful imports. The MCP tool classes know nothing about addon file layouts; only the import project references the parsing library.
-
-SQLite retains the complete parsed inputs, including fields not yet modeled, plus searchable projections and timestamps. Lua tables preserve numeric versus string keys and sparse indices. Unknown game IDs are retained rather than rejected. The database is the latest successful import per source, **not a history of every game session**.
-
-## Install and connect
-
-1. Install the **.NET 10 runtime** (or SDK).
-2. Download `eso-mcp-portable.zip` from [Releases](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases), extract it to a stable directory, and keep the entire directory together.
-3. Copy `settings.example.json` to a private `settings.json` and replace its paths with yours. Use absolute paths. Add more `locations` for other local saved-data directories, or `catalogPaths` for external EsoData.NET catalog JSON files.
-4. In ESO, visit the characters/storage you want the addons to observe, then `/reloadui` or log out normally to save their data.
-5. Register the server in your MCP client. Its first data query imports your sources automatically.
-
-Example PowerShell, assuming the release is extracted to `C:/Tools/EsoMcp`:
+1. Install the .NET 10 runtime or SDK.
+2. Download and extract `eso-mcp-portable.zip` from [Releases](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases). Keep its files together.
+3. Copy `settings.example.json` to `settings.json` and configure source directories if the Windows defaults are unsuitable.
+4. Register the server:
 
 ```powershell
 codex mcp add eso -- dotnet C:/Tools/EsoMcp/eso-mcp.dll --config C:/Tools/EsoMcp/settings.json
-codex mcp get eso
 ```
 
-Start a new Codex session or restart the app if an existing session does not discover the newly registered tools. Other stdio MCP clients use the equivalent configuration:
+Other clients use the equivalent stdio command and arguments. Without a configuration file, Windows uses Documents/Elder Scrolls Online/live and `%LOCALAPPDATA%/EsoMcp/data.db`. On other systems, provide local source paths. Save in ESO with `/reloadui` or logout after visiting relevant characters/storage. Files contain the last saved observations, not live game memory.
+
+Existing MCP sessions may retain their old process/tool schemas; reconnect the server or start a new session after upgrading. The server logs to stderr and reserves stdout for MCP messages.
+
+## Tools
+
+| Tool | Purpose |
+|---|---|
+| `inspect_account` | Discover accounts or batch compact queries for characters, budgets, skills, inventory, equipment, knowledge, research, collections, saved builds and source coverage |
+| `resolve_definitions` | Batch name/ID searches in local skill, set, item or champion catalogs |
+| `edit_build` | Create/copy/read/list/update/delete named targets and working builds with revision protection |
+| `analyze_build` | Validation, differences, prerequisite status, equipment candidates, set counts, leveling candidates or crafting shortages |
+| `export_build` | Export explicitly selected CSPS sections or crafting orders, with a validation report |
+| `verify_build` | Compare an exported plan revision with newly saved game state, returning differences only |
+| `refresh_catalog` | Explicitly fetch selected UESP definitions; account information is never sent |
+
+Names must resolve unambiguously. IDs are also accepted. Query results have counts, pagination and optional field selection; raw Lua, item-link blobs and repeated provenance do not accompany ordinary rows.
+
+## Typical workflow
+
+Call `inspect_account` without arguments to discover accounts. Then batch the information needed for a decision:
 
 ```json
 {
-  "mcpServers": {
-    "eso": {
-      "command": "dotnet",
-      "args": ["C:/Tools/EsoMcp/eso-mcp.dll", "--config", "C:/Tools/EsoMcp/settings.json"]
-    }
+  "account": "EU/@EXAMPLE",
+  "queries": [
+    {"section":"summary", "character":"Example Character"},
+    {"section":"skills", "character":"Example Character", "unfinishedOnly":true},
+    {"section":"inventory", "setIds":[123], "limit":20}
+  ]
+}
+```
+
+Create a working build through `edit_build`:
+
+```json
+{"action":"create", "account":"EU/@EXAMPLE", "character":"Example Character", "name":"Exploration"}
+```
+
+The response contains the plan ID and revision. Modify only what changed:
+
+```json
+{
+  "action":"update", "id":"RETURNED_ID", "expectedRevision":1,
+  "patch":{
+    "skills":{"Undo":{"rank":1,"morph":0,"isPassive":false}},
+    "barSlots":{"front.6":"Undo"},
+    "attributes":{"health":0,"magicka":64,"stamina":0},
+    "constraints":{"fullRespec":true,"requireFullBars":true,"avoidMaxedMorphs":true,"reserveSkillPoints":5}
   }
 }
 ```
 
-Without `--config`, Windows defaults to the standard Documents/ESO/live folders and a database at `%LOCALAPPDATA%/EsoMcp/data.db`. On other platforms, provide paths to your locally accessible game data. Database-backed tool calls automatically refresh first, including `database_status` and `export_saved_build`. Protocol initialization/tool discovery and the standalone crafting-link encoder do not trigger imports. With `--config`, only the locations you explicitly list are used. Set `"autoRefresh": false` or pass `--no-auto-refresh` to refresh only on explicit requests. An empty `locations`/`catalogPaths` configuration or `--database-only` serves an existing database without import inputs.
+Skill names resolve through the local catalog. Bar slots are `front.1`–`front.6` and `back.1`–`back.6`; slot 6 is the ultimate. CP slots use 1–12 in Craft/Warfare/Fitness order. Dictionary entries set to null remove/clear them; omitted patch properties remain unchanged. Supplied constraints, requirements, guides and crafting arrays replace their corresponding sections. Edits are atomic, and a stale revision cannot overwrite another chat's work.
 
-The server uses stdio: the MCP client launches it as needed, and stdout carries only protocol messages. `--refresh`, `--status` and `--help` are standalone commands that print output and exit. CLI `--status` reads the existing database without refreshing; MCP `database_status` uses the automatic refresh setting. `--refresh` exits with code 1 if a source fails; absent optional addon files are reported as `missing` without failing the command.
+Create from existing native CSPS text using `nativeCsps`. Read selected plan sections with `action:"read"` and `section:"build"`, `"requirements"`, `"guides"`, `"constraints"` or `"crafting"`. The default read is a compact summary. A target can contain unmet future requirements without claiming they are currently available.
 
-## Available tools
+Export through `export_build`:
 
-| Tool | Purpose |
-|---|---|
-| `database_status` | Counts, save/import times, diagnostics and refresh outcomes; full source paths with `includeDetails` |
-| `refresh_database` | Optional manual refresh; `force: true` reprojects unchanged files |
-| `list_characters` | Names and identities, filterable by name/account/server |
-| `get_character_state` | Latest character summary or selected research, champion, statistics, skills or equipment section, with observation/source times |
-| `search_inventory` | Owned stacks across characters and storage; filter by item/set/location owner |
-| `get_knowledge` | Recipe, plan, motif, grimoire and script knowledge, including unknown results |
-| `list_records` | Discover saved builds, observations, research, collections and metadata |
-| `get_record` | Retrieve a selected detail record without raw Lua `details` by default; request one top-level field or `includeDetails` |
-| `find_sets` | Resolve set names and IDs from imported catalogs |
-| `find_item_definitions` | Resolve item IDs, set membership and supplied trait/equipment metadata |
-| `find_skill_definitions` | Resolve skill IDs when a skill catalog is supplied |
-| `find_skill_lines` | Resolve class skill-line IDs from refreshed metadata, including class ownership |
-| `export_saved_build` | Return a stored profile as native CSPS text |
-| `create_csps_equipment_import` | Create an equipment-only native CSPS import from structured slots |
-| `create_csps_available_loadout_import` | Create native CSPS bars and current CP using only abilities observed as purchased; no skill-point purchases |
-| `create_csps_respec_import` | Create a complete CSPS skill-purchase, bar, attribute and CP respec plan checked against observed point budgets and class skill lines; leaves gear unchanged |
-| `create_hub_build_import` | Patch bars and CP in an ESO-Hub build link for CSPS Import Link |
-| `create_crafting_import` | Encode resolved item IDs, level, quality, style and optional enchantment into Lazy Set Crafter links |
-| `refresh_item_metadata` | Explicitly download item metadata for selected local LibSets set IDs into SQLite |
-| `refresh_skill_metadata` | Explicitly download current UESP skill-line IDs and selected ability definitions into SQLite |
-| `create_semantic_crafting_import` | Resolve set/piece/trait choices from SQLite and create one per-item-glyph crafting import |
-
-List/search tools return compact rows by default, with a 25-row page. Use `offset` and `limit` (1–200) to page. Pass `includeDetails: true` when you need full source IDs, timestamps, localized names, original item links or definition JSON. The compact item-definition rows still expose available `equip_type`, `armor_type`, `weapon_type` and `trait` selectors. `get_record` omits the potentially enormous raw Lua `details` field by default and marks it in `_omittedFields`; use `field: "details"` or `includeDetails: true` only when needed. `get_character_state(section: "all")` intentionally returns every normalized section and can also be large; request a specific section for ordinary work.
-
-Character keys and record keys are opaque strings returned by the tools. Use canonical server `EU` or `NA`; `EU Megaserver`/`NA Megaserver` source labels are normalized during import. Other world labels are preserved. Names can change without changing identity. Accounts and servers are separate ownership pools.
-
-Example requests to an assistant:
-
-- “Show me which ESO characters are available.”
-- “Find the crafter's known recipes and research records.”
-- “Show my tank's unspent CP, empty champion slots and saved character stats.”
-- “Find this set, then show all owned pieces on my account, including the bank.”
-- “Export my saved tank build for CSPS.”
-- “Generate purple level-32 crafting links for these resolved item IDs.”
-
-## Data coverage
-
-| Installed source | Imported data |
-|---|---|
-| IIfA | Character directory; item links, counts and observed locations; storage metadata |
-| LibCharacterKnowledge | Names, recipes, plans, motifs, scribing, research flags and timers |
-| Caro's Skill Point Saver | Characters with or without profiles; saved build text, skills/passives, bars, attributes, CP, gear, metadata |
-| uespLog | Saved character observations: level, class/race, skill points, purchased skills/line ranks, CP budgets/stars/slots, research summaries/timers, current/per-bar/advanced stats, equipped gear and inventory |
-| LibMultiAccountSets | Current/legacy account collection masks and scan times |
-| Dolgubon's Lazy Set Crafter | Saved crafting requests; full source retained, including unprojected fields |
-| Installed LibSets | Set names and item-ID membership |
-| External EsoData.NET JSON catalogs | Additional item/skill definitions, collection-piece and research mappings, provenance |
-
-Supported filenames are `IIfA.lua`, `LibCharacterKnowledge.lua`, `CarosSkillPointSaver.lua`, `uespLog.lua`, `LibMultiAccountSets.lua`, and `DolgubonsLazySetCrafter.lua`. Addons are optional and provide different, partial observations. Installing the server does not cause the game to record information its addons have never scanned.
-
-Saved builds are **plans**, not proof that their allocations are applied. Observed skills/stats are exposed separately as `character_state` records when that data exists. Unknown knowledge remains unknown. Research timers expiring are not treated as evidence of newly learned traits. Collection masks need matching piece metadata to resolve individual slots; research indices likewise need a matching catalog/signature.
-
-Use `list_characters` to obtain a `character_key`, then `get_character_state(characterKey, section)`:
-
-- `summary` (default): basic character fields and available sections.
-- `research`: per-craft and per-line known/total counts, open slots, original trait display labels and active timers with the research scan timestamp. Display labels are not numeric trait-ID mappings; `[bracketed]` traits can still be researching. This does not resolve the separate indexed LCK research flags.
-- `champion`: spent/unspent points by discipline, named purchased stars with both champion skill and ability IDs, and slot assignments. An explicit slot value of zero means empty; an absent slots table means unobserved.
-- `statistics`: current and saved-bar stats, separate addon computations and advanced flat/percent values. Original names and units are retained. Cached bars can reflect different moments/buffs; they have no individual timestamps.
-- `skills`: purchased abilities, skill-line ranks and skill-point counts. A line rank does not mean all its skills are purchased.
-- `equipment`: observed equipped item links. `all`: all normalized fields, without raw Lua details.
-
-Every response includes `available`, character identity, observation/source timestamps and latest refresh status. Missing observations/sections return `available: false`, not zero progress. The tool selects one latest character-state observation; it does not fill gaps by silently merging older snapshots or saved builds. Raw detail records remain accessible through `get_record`.
-
-LibSets supplies set membership, not complete crafting-piece/trait definitions or a full skill database. `refresh_item_metadata` explicitly fetches current UESP metadata for the selected installed LibSets set IDs, stores it in local SQLite, and leaves later resolution/database requests offline. Additional metadata can also be imported through `catalogPaths`; see [EsoData.NET catalogs](https://github.com/JuliusJacobsohn/EsoData.NET#resolve-ids-from-refreshable-catalogs). `create_semantic_crafting_import` accepts one structured selector per item and supports a distinct glyph/style for every item. The server does not infer craftability, learn skills, equip gear or submit crafting/mail actions.
-
-## Refresh and freshness
-
-- Saves are **last written disk data**, not live game memory. Source timestamps and observation timestamps are kept separately.
-- Automatic refresh checks every configured source before each database-backed tool call. Only changed contents are reimported. The manual refresh tool runs once, without a redundant automatic refresh, and accepts `force: true` when needed.
-- Each changed source is replaced transactionally. A malformed, unavailable or changing file leaves its previous successful import intact; inspect `database_status` for failures/staleness. There is no silent clearing of missing sources.
-- Import fingerprints include content, projection revision, parser version and the configured world mapping. Upgrades that change projections, parser updates and mapping changes reprocess unchanged saves automatically. `refresh_database(force: true)` remains available for an explicit reimport. This does not pin or reject ESO API versions.
-- Queries prefer one inventory source per account/server (inventory addon first, then newest source at equal priority) to avoid summing duplicate observations. `includeAlternateSources: true` exposes all sources for comparison; do not sum them together. This preference is per account, so secondary-only locations may require that option.
-- uespLog records without a world remain explicitly `unresolved:…`. Set a location's `defaultServer` only when you know which world its otherwise unqualified records belong to.
-- Removing a source from configuration does not delete its previous observations. For a fresh import from only the current configuration, select a new database path.
-
-Complete parsed sources remain private in SQLite; the MCP API does not return full source documents. Detail projections omit common credential fields. Treat the database as personal account data and do not publish it. No uploads or downloads run as part of refresh or queries.
-
-## Development and releases
-
-```shell
-dotnet build EsoMcp.sln -c Release
-dotnet test EsoMcp.sln -c Release --no-build
-python scripts/smoke_mcp.py
-dotnet publish src/EsoMcp.Server -c Release -o artifacts/server -p:UseAppHost=false
+```json
+{"id":"RETURNED_ID", "sections":"Skills, Bars, Attributes"}
 ```
 
-The SDK is .NET 10; the protocol smoke test uses Python 3's standard library. Tests use synthetic inputs and temporary databases. The smoke test starts the actual server, initializes MCP, discovers/calls every tool, and checks invalid requests. It verifies that a normal query imports initial/changed files automatically, malformed or missing files retain previous data, and manual mode defers imports until requested. An explicit `--live-database` mode is available for local integration checks; it imports only paths supplied by the operator and never writes game files.
+Native **CSPS text** is the default format. Select only the listed sections in the addon. Structural errors block export; `requireReady:true` also blocks unknown/unmet requirements. By default, future targets can be exported with explicit findings. Generating/importing text is not proof that ESO applied it.
 
-| Project | Responsibility |
-|---|---|
-| `EsoMcp.Core` | SQLite schema, records, queries and service interfaces; no addon dependency |
-| `EsoMcp.Import` | EsoData.NET adapters, import orchestration and format encoding |
-| `EsoMcp.Server` | CLI/composition root and MCP tools; query tools depend on Core interfaces |
+After applying and saving in ESO, call `verify_build`:
 
-CI builds, tests and exercises MCP on Windows and Linux. Push a `v<Version>` tag matching `Directory.Build.props` to publish a portable release ZIP. The server uses the published **EsoData.NET NuGet package**; no sibling checkout is required. The server itself is distributed as an app, not another NuGet library.
+```json
+{"id":"RETURNED_ID", "expectedRevision":2, "sections":"Skills, Bars, Attributes"}
+```
 
-Database and private configuration files are ignored by Git. Code is MIT licensed; imported game/addon catalogs retain their own licenses and are not bundled. This is an unofficial project, unaffiliated with ZeniMax, Bethesda or the addon authors.
+It compares the chosen revision with newly observed data and returns differences, including unobserved sections.
+
+## Targets, requirements and crafting
+
+A plan stores guide URLs with retrieval dates and variant names. Add explicit requirements with IDs, kinds, priorities, optional flags and dependency IDs. Supported kinds are `Skill`, `SkillLine`, `Knowledge`, `Item`, `Allocation` and `Manual`. Missing source information produces `unknown`. Manual milestones can have a completion value and evidence. Dependencies must refer to existing requirements and cannot form cycles. GitHub issue creation/updating remains the assistant's separate responsibility.
+
+Skill progression and purchased allocation are separate. A refunded skill is not automatically unlearned, but sources do not reveal every unpurchased morph's progression. A maxed base ability does not satisfy a requirement for its morph. Respec analysis uses total points and exposes currently unspent points separately.
+
+Crafting orders contain item ID, level/CP, quality, style, quantity and per-item enchantment ID/quality. `export_build` with `format:"crafting"` generates Lazy Set Crafter links. `analyze_build` with `section:"crafting"` and `crafter` compares exact external-catalog recipes with account materials and knowledge. If exact recipe/cost data is unavailable, it returns that gap instead of inventing a material shopping list. Food/potion queue exports are not implied by support for equipment links.
+
+## Catalogs and known data limits
+
+Installed LibSets provides set membership. Previously downloaded UESP definitions remain usable in the existing database; `refresh_catalog` retrieves more in batches. `catalogPaths` accepts EsoData.NET JSON definitions, including CP rules and exact crafting recipes. Definitions are independent of the compiled assembly.
+
+- Inventory is assembled by location from available providers. Source diagnostics and scan times are available through `sources`; absent coverage is not proof of non-ownership.
+- The current sources do not expose all unlocks, free-skill costs, crafting bills, binding information or CP prerequisite rules. Reports distinguish these gaps from known failures.
+- UESP includes automatically granted skills. When modeled costs do not reconcile with the game's recorded spent total, incremental/refundable costs are null with a diagnostic.
+- CP validation can preserve an observed allocation without inventing new rules. Changed allocations require catalog cap/discipline/prerequisite evidence to be reported ready.
+- Equipment candidates are observed owned variants, not a guarantee of transferability, enchantment equivalence or optimal damage. Recorded character statistics are not recomputed combat simulations.
+- Scribed native ability IDs are represented as negative IDs in bar edit selectors; script choices live in `scribedSkills`. They are distinct from ordinary ability IDs.
+
+## Persistence and migration
+
+SQLite stores account JSON in `account_documents` and authored plans in `build_plans`. A successful full configured-source load replaces the account snapshot set in one transaction; plans are independent. Parsing/read failures do not replace snapshots. Missing optional sources are reported. Explicit offline mode uses the last persisted documents and is visibly labeled.
+
+The 1.1 tool surface replaces the earlier per-record database tools. Existing SQLite catalog/source tables are retained for downloaded metadata and compatibility, but the new account query path does not reproject personal data into those tables. Saved CSPS profiles remain accessible under each character. Existing generated import files can be brought into named plans with `nativeCsps`.
+
+CLI options:
+
+```text
+--config FILE          JSON configuration
+--database FILE        SQLite path
+--saved-variables DIR  Source directory override
+--addons DIR           Installed addon directory (with --saved-variables)
+--server NAME          Default world for otherwise unqualified sources
+--database-only        Explicit offline use of persisted account documents
+--no-auto-refresh      Explicit offline mode
+--refresh              Load/persist accounts and print a compact summary
+--status               Inspect persisted account/plan summaries
+--help                 Full help
+```
+
+## Development and verification
+
+```powershell
+pwsh -File scripts/Restore-EsoData.ps1
+dotnet test EsoMcp.sln -c Release
+dotnet run --project samples/EsoMcp.Smoke -c Release
+```
+
+The smoke program uses the official .NET MCP client against the real stdio server. It verifies discovery, account reads, draft mutation, stale-write rejection, export, comparison and persistence across server restarts. Its default fixture is synthetic. Add `-- <server.dll> --live` to exercise local game data; it creates and deletes only its own temporary verification draft and never changes game files. `--request FILE` executes one explicit JSON `{tool,arguments}` request for integration diagnostics.
+
+For simultaneous library/server development with sibling repositories, `-p:UseLocalEsoData=true` references the local library. Releases and CI use the published NuGet package. Windows and Ubuntu CI run tests and the .NET protocol smoke check.
+
+See [architecture](docs/account-architecture.md) and the [library](https://github.com/JuliusJacobsohn/EsoData.NET) for domain details. MIT licensed; personal game data and downloaded catalogs are not distributed.

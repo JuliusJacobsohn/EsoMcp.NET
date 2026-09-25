@@ -1,6 +1,6 @@
 # MCP as an account and build workspace
 
-Replacement design, 2026-09-25; not implemented in the released server. Breaking changes are permitted. The design follows the [account-first library](https://github.com/JuliusJacobsohn/EsoData.NET/blob/main/docs/account-architecture.md).
+Architecture, 2026-09-25, implemented in 1.1.0. The current public tool contract and source limitations are documented in the README; this document also captures broader domain intent. The design follows the [account-first library](https://github.com/JuliusJacobsohn/EsoData.NET/blob/main/docs/account-architecture.md).
 
 ## Purpose
 
@@ -17,14 +17,14 @@ Configured sources + local catalogs
               |
         compact MCP projections
 
-Local named draft JSON <-- edit / analyze / export / compare
+SQLite account JSON + named build JSON <-- edit / analyze / export / compare
 ```
 
 Remove SQLite projections from the required request path. Remove the import-project/database/tool split that forces gameplay knowledge into server methods. MCP calls library operations over typed objects. Addon knowledge stays in library adapters and source configuration.
 
 One request loads at most one account graph and shares it across all batched operations. Do not return the entire graph automatically. Local reads are fresh on each request; no loaded account cache or watcher is required. Network catalog updates are explicit and persist definition files, independently of personal account data.
 
-Only authored work needs persistence: named drafts, target requirements and their guide references. Use ordinary local JSON files with atomic replacement. A draft records account/character identity, base build, desired build, constraints and optional target requirements. It is a detached working copy, not a claim about the applied game state. It survives server/client restarts.
+SQLite persists refreshed account documents and authored drafts in separate tables. A refresh replaces the account snapshot set in one transaction without touching drafts. A draft records account/character identity, base build, desired build, constraints and optional target requirements. It is a detached working copy, not a claim about the applied game state. It survives server/client restarts.
 
 A draft revision prevents two chats from accidentally overwriting each other's edits. This is one optimistic revision check, not an event store. Separate drafts can belong to the same character. Loading a newer account never silently replaces draft edits. Explicit rebasing reports changes affecting the plan and preserves intentional edits.
 
@@ -32,7 +32,7 @@ No automatic write-back to SavedVariables. No game actions, mail or purchases ar
 
 ## Small tool surface
 
-Names below are target API names, not currently available tools.
+These seven tools are registered by the server. See the README for their implemented parameters and supported analysis sections.
 
 | Tool | Operation |
 |---|---|

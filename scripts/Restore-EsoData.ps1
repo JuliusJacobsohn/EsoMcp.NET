@@ -1,4 +1,4 @@
-$project = [xml](Get-Content (Join-Path $PSScriptRoot '../src/EsoMcp.Import/EsoMcp.Import.csproj') -Raw)
+$project = [xml](Get-Content (Join-Path $PSScriptRoot '../src/EsoMcp.Core/EsoMcp.Core.csproj') -Raw)
 $reference = $project.Project.ItemGroup.PackageReference | Where-Object Include -eq 'EsoData.NET'
 $version = $reference.Version
 if (-not $version) { throw 'EsoData.NET PackageReference version is missing.' }
