@@ -89,7 +89,7 @@ internal static class ToolResult
     public static string Json<T>(Func<T> action)
     {
         try { return DataJson.Write(action()); }
-        catch (Exception error) when (error is ArgumentException or KeyNotFoundException or FormatException)
+        catch (Exception error) when (error is ArgumentException or KeyNotFoundException or FormatException or InvalidOperationException or IOException)
         { throw new McpException(error.Message); }
     }
 }

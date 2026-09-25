@@ -54,16 +54,16 @@ public sealed class ServerSettings
 
     public const string Help = """
         EsoMcp.NET — local ESO database and MCP server (.NET 10)
-        No arguments: serve MCP over stdio; refresh changed sources before database-backed tools.
+        No arguments: serve MCP over stdio; load sources and persist typed accounts before account/build operations.
           --config FILE          JSON with databasePath, locations, catalogPaths
           --database FILE        SQLite file (default: local application data/EsoMcp/data.db)
           --saved-variables DIR  One SavedVariables directory; overrides configured locations
           --addons DIR           Optional AddOns directory for its installed LibSets catalog
           --server NAME          Optional world for observations without a world identifier
-          --database-only        Disable all refresh inputs; keep existing database queryable
-          --no-auto-refresh      Refresh only on explicit requests (config: autoRefresh=false)
-          --refresh              Import configured sources, print JSON, exit (1 if any failed)
-          --status               Print database status as JSON, exit
+          --database-only        Explicit offline mode using stored account snapshots and plans
+          --no-auto-refresh      Explicit offline mode (config: autoRefresh=false)
+          --refresh              Load/persist configured accounts, print summary, exit
+          --status               Print stored account and plan summaries as JSON, exit
           --help                 Print this help
         On Windows, standard ESO live folders are defaults unless --config is supplied.
         Use absolute paths in MCP client configuration. No files in game folders are modified.
