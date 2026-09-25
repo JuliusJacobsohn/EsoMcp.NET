@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using EsoData.Accounts;
 using EsoData.Builds;
+using EsoData.Catalogs;
 using EsoMcp.Import;
 using ModelContextProtocol.Server;
 
@@ -35,11 +36,11 @@ public sealed class AccountTools(AccountWorkspace workspace)
         if (queries is null || queries.Length == 0) return (object)new { Accounts = read.Data.Accounts.Select(a => new { a.Key, a.Name, a.Server, Characters = a.Characters.Count }), read.Data.Diagnostics };
         if (queries.Length > 20) throw new ArgumentException("At most 20 queries per request.");
         var selected = AccountWorkspace.Select(read, account);
-        return new { Account = selected.Key, Results = queries.Select(q => Query(selected, q)).ToArray(),
+        return new { Account = selected.Key, Results = queries.Select(q => Query(selected, q, read.Catalog)).ToArray(),
             Diagnostics = read.Data.Diagnostics.Concat(selected.Sources.SelectMany(s => s.Diagnostics)).Distinct().ToArray() };
     });
 
-    internal static object Query(EsoAccount account, AccountQuery query)
+    internal static object Query(EsoAccount account, AccountQuery query, GameCatalog? catalog = null)
     {
         if (query.Offset < 0 || query.Limit is < 1 or > 100) throw new ArgumentException("Use offset >= 0 and limit 1..100.");
         var character = query.Character is null ? null : account.Character(query.Character);
@@ -60,7 +61,8 @@ public sealed class AccountTools(AccountWorkspace workspace)
             "research" => [new { NeedCharacter().Progress.Research, NeedCharacter().Progress.ResearchKnowledge }],
             "knowledge" => NeedCharacter().Progress.Knowledge.Where(k => query.Category is null || k.Key == query.Category).SelectMany(k =>
                 k.Value.Where(e => (query.Ids is null || query.Ids.Contains(e.Key)) && (query.Known is null || e.Value == query.Known))
-                    .Select(e => (object)new { Category = k.Key, ItemId = e.Key, Known = e.Value })),
+                    .Select(e => new { Category = k.Key, ItemId = e.Key, Name = catalog?.Items.GetValueOrDefault(e.Key)?.Name, Known = e.Value })
+                    .Where(e => Text(e.Name)).Cast<object>()),
             "savedBuilds" => NeedCharacter().SavedBuilds.Select(b => (object)new { b.Id, b.Name, b.SavedAt, Sections = b.Build.Sections.ToString() }),
             "sources" => account.Sources.Cast<object>(),
             "collections" => (account.SetCollections ?? []).Where(c => query.SetIds is null || query.SetIds.Contains(c.Key))

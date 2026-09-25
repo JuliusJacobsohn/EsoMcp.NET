@@ -40,6 +40,8 @@ Existing MCP sessions may retain their old process/tool schemas; reconnect the s
 
 Names must resolve unambiguously. IDs are also accepted. Query results have counts, pagination and optional field selection; raw Lua, item-link blobs and repeated provenance do not accompany ordinary rows.
 
+Call `refresh_catalog` with no arguments to download Grimoire/script names for the IDs in local knowledge coverage. Both learned and unlearned entries are included; only definition IDs are sent to UESP. Subsequent `knowledge` queries include names and support `text` filtering. Unknown definitions retain a null name. Learned scripts establish availability, not which combination was actually scribed or whether a quest was completed.
+
 ## Typical workflow
 
 Call `inspect_account` without arguments to discover accounts. Then batch the information needed for a decision:

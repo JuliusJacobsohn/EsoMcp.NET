@@ -13,6 +13,27 @@ public sealed class CraftingCatalogService(Database database) : ICraftingCatalog
     private const string Endpoint = "https://esolog.uesp.net/exportJson.php";
     private static readonly HttpClient Client = new();
 
+    public async Task<IReadOnlyList<RefreshEntry>> RefreshDefinitionsAsync(IReadOnlyList<long> itemIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (itemIds.Any(id => id <= 0)) throw new ArgumentException("Item IDs must be positive.", nameof(itemIds));
+        var results = new List<RefreshEntry>();
+        foreach (var chunk in itemIds.Distinct().Order().Chunk(100))
+        {
+            var query = $"{Endpoint}?table=minedItemSummary&ids={string.Join(',', chunk)}" +
+                "&fields=itemId,name,setId,equipType,armorType,weaponType,trait";
+            var catalog = UespCatalog.Parse(await Client.GetStringAsync(query, cancellationToken), query);
+            var raw = catalog.ToJson();
+            var source = new SourceDocument(Identity.Key("uesp-item-metadata", "items", string.Join(',', chunk)),
+                "uesp-item-metadata", query, Identity.Key(raw), DateTimeOffset.UtcNow, raw, Priority: 20);
+            database.Replace(CatalogProjection.Project(catalog, source), cancellationToken);
+            var message = $"{catalog.Items.Count} of {chunk.Length} requested item definitions.";
+            database.RecordAttempt(source.Key, source.Label, source.Path, "imported", message);
+            results.Add(new(source.Label, "imported", message));
+        }
+        return results;
+    }
+
     public async Task<IReadOnlyList<RefreshEntry>> RefreshItemMetadataAsync(IReadOnlyList<long> setIds,
         CancellationToken cancellationToken = default)
     {

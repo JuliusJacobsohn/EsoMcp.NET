@@ -83,6 +83,8 @@ public interface IGameExports
 }
 public interface ICraftingCatalog
 {
+    Task<IReadOnlyList<RefreshEntry>> RefreshDefinitionsAsync(IReadOnlyList<long> itemIds,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RefreshEntry>> RefreshItemMetadataAsync(IReadOnlyList<long> setIds,
         CancellationToken cancellationToken = default);
     IReadOnlyList<long> Resolve(IReadOnlyList<CraftingPlanItem> items);
