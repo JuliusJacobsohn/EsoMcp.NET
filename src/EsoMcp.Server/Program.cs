@@ -10,7 +10,7 @@ try
     var (settings, mode) = ServerSettings.Parse(args);
     if (mode == "help") { Console.WriteLine(ServerSettings.Help); return 0; }
     var database = new Database(settings.DatabasePath);
-    var options = new ImportOptions { Locations = settings.Locations, CatalogPaths = settings.CatalogPaths };
+    var options = new ImportOptions { Locations = settings.Locations, CatalogPaths = settings.CatalogPaths, PriceLanguage = settings.PriceLanguage };
     var store = new WorkspaceStore(settings.DatabasePath);
     var workspace = new AccountWorkspace(store, database, options, !settings.AutoRefresh || settings.Locations.Count == 0);
     if (mode == "status") { Console.WriteLine(DataJson.Write(new { Accounts = store.Accounts().Select(a => new { a.Key, Characters = a.Characters.Count }), Plans = store.Plans() })); return 0; }
@@ -29,7 +29,7 @@ try
     builder.Services.AddSingleton(options);
     builder.Services.AddSingleton<ICraftingCatalog, CraftingCatalogService>();
     builder.Services.AddSingleton<ISkillCatalog, SkillCatalogService>();
-    builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<AccountTools>().WithTools<BuildTools>().WithTools<CatalogTools>();
+    builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<AccountTools>().WithTools<BuildTools>().WithTools<CatalogTools>().WithTools<PriceTools>();
     await builder.Build().RunAsync();
     return 0;
 }

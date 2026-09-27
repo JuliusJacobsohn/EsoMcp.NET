@@ -11,6 +11,7 @@ public sealed class ServerSettings
     public List<ImportLocation> Locations { get; set; } = [];
     public List<string> CatalogPaths { get; set; } = [];
     public bool AutoRefresh { get; set; } = true;
+    public string PriceLanguage { get; set; } = "EN";
 
     public static (ServerSettings Settings, string Mode) Parse(string[] args)
     {

@@ -28,8 +28,21 @@ Existing MCP sessions may retain their old process/tool schemas; reconnect the s
 
 ## Tools
 
+### Local TTC pricing
+
+`query_prices` searches the **entire** downloaded TTC market catalog, including items not owned by any account. Example: `{"region":"EU","text":"dreugh wax","limit":5}`. Filters include `ttcItemIds` (not ESO IDs), ESO `quality` (1–5), `marketLevel` (50+CP), `ttcTrait` and the `extra` variant path. Listing statistics and sale statistics remain separate; results include source dates and bounded pagination.
+
+The server reads TTC under configured `addonsPath`, with `priceLanguage` (default `EN`) selecting the lookup matching your saved inventory names. Normal requests reread local files; `offline:true` uses the SQLite catalog snapshot. No requests go to TTC's website and the server never launches its updater.
+
+`inspect_account` inventory rows include `price` and `estimatedStackPrice`; `section:"prices"` reports association coverage and the partial priced-stack estimate. Use field projection for compact output, such as `fields:["name","count","price","estimatedStackPrice"]`. Every item has a status, including unknown/unlisted items. Missing trait/level/master-writ metadata yields `NeedsMetadata`, not a guessed price. A price does not prove an owned/bound item can be sold.
+
+The full catalog is stored separately in SQLite `price_catalogs`; account items retain their price associations. No market data is bundled. Missing optional TTC files produce unavailable pricing; malformed existing files fail visibly. Catalog refresh does not modify build plans.
+
+### Tool reference
+
 | Tool | Purpose |
 |---|---|
+| `query_prices` | Search all local TTC variants independently of account ownership |
 | `inspect_account` | Discover accounts or batch compact queries for characters, budgets, skills, inventory, equipment, knowledge, research, collections, saved builds and source coverage |
 | `resolve_definitions` | Batch name/ID searches in local skill, set, item or champion catalogs |
 | `edit_build` | Create/copy/read/list/update/delete named targets and working builds with revision protection |

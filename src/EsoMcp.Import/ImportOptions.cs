@@ -5,4 +5,5 @@ public sealed class ImportOptions
 {
     public List<ImportLocation> Locations { get; set; } = [];
     public List<string> CatalogPaths { get; set; } = [];
+    public string PriceLanguage { get; set; } = "EN";
 }

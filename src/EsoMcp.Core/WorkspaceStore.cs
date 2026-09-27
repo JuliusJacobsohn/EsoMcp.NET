@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 namespace EsoMcp.Core;
 
 /// <summary>Observed account documents and authored plans have separate lifecycles in the same SQLite file.</summary>
-public sealed class WorkspaceStore
+public sealed partial class WorkspaceStore
 {
     private readonly string connectionString;
     public WorkspaceStore(string path)
@@ -17,6 +17,7 @@ public sealed class WorkspaceStore
         command.CommandText = """
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS account_documents(account_key TEXT PRIMARY KEY, refreshed_at TEXT NOT NULL, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS price_catalogs(region TEXT PRIMARY KEY, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS build_plans(plan_id TEXT PRIMARY KEY, account_key TEXT NOT NULL, character_id TEXT NOT NULL,
                 name TEXT NOT NULL, revision INTEGER NOT NULL, document TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS plans_character ON build_plans(account_key,character_id);

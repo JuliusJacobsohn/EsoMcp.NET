@@ -21,6 +21,8 @@ public sealed class AccountQuery
     public bool UnfinishedOnly { get; set; }
     public string[]? Fields { get; set; }
     public bool Group { get; set; }
+    public string? PriceStatus { get; set; }
+    public string? Sort { get; set; }
     public int Offset { get; set; }
     public int Limit { get; set; } = 20;
 }
@@ -29,14 +31,14 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds or sources. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, sources or prices (pricing coverage). Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
         if (queries is null || queries.Length == 0) return (object)new { Accounts = read.Data.Accounts.Select(a => new { a.Key, a.Name, a.Server, Characters = a.Characters.Count }), read.Data.Diagnostics };
         if (queries.Length > 20) throw new ArgumentException("At most 20 queries per request.");
         var selected = AccountWorkspace.Select(read, account);
-        return new { Account = selected.Key, Results = queries.Select(q => Query(selected, q, read.Catalog)).ToArray(),
+        return new { Account = selected.Key, selected.PriceSource, Results = queries.Select(q => Query(selected, q, read.Catalog)).ToArray(),
             Diagnostics = read.Data.Diagnostics.Concat(selected.Sources.SelectMany(s => s.Diagnostics)).Distinct().ToArray() };
     });
 
@@ -56,6 +58,11 @@ public sealed class AccountTools(AccountWorkspace workspace)
                 && (!query.UnfinishedOnly || !s.IsPassive && !(s.Morph > 0 && s.Rank >= 4))).Cast<object>(),
             "skillLines" => (NeedCharacter().Progress.SkillLines ?? []).Where(s => Text(s.Key)).Select(s => (object)new { Name = s.Key, Rank = s.Value }),
             "inventory" => Inventory(),
+            "prices" => [new { account.PriceSource, Stacks = account.Inventory.Count(),
+                StatusCounts = account.Inventory.GroupBy(i => i.Price.Status).ToDictionary(g => g.Key.ToString(), g => g.Count()),
+                PricedStackEstimate = account.Inventory.Any(i => i.EstimatedStackPrice.HasValue)
+                    ? account.Inventory.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null,
+                Note = "Partial market estimate, not liquidatable wealth. Unpriced items excluded; binding/tradability is not established." }],
             "equipment" => NeedCharacter().Build.Equipment.Select(p => (object)new { Slot = p.Key, Item = p.Value }),
             "champion" => [new { NeedCharacter().Build.ChampionPoints, NeedCharacter().Build.ChampionSlots, NeedCharacter().Progress.ChampionBudgets }],
             "research" => [new { NeedCharacter().Progress.Research, NeedCharacter().Progress.ResearchKnowledge }],
@@ -78,6 +85,7 @@ public sealed class AccountTools(AccountWorkspace workspace)
             "equipment" => NeedCharacter().Build.Sections.HasFlag(BuildSections.Equipment),
             "champion" => NeedCharacter().Build.Sections.HasFlag(BuildSections.ChampionPoints),
             "collections" => account.SetCollections is not null,
+            "prices" => account.PriceSource is not null,
             _ => true
         };
         return new { query.Section, Available = available, Total = all.Length, query.Offset,
@@ -88,9 +96,26 @@ public sealed class AccountTools(AccountWorkspace workspace)
             var items = account.Inventory.Where(i => (character is null || i.CharacterId == character.Id) && Text(i.Name)
                 && (query.Ids is null || query.Ids.Contains(i.ItemId)) && (query.SetIds is null || i.SetId.HasValue && query.SetIds.Contains(i.SetId.Value))
                 && (query.Location is null || string.Equals(i.Location, query.Location, StringComparison.OrdinalIgnoreCase)));
+            if (query.PriceStatus is not null)
+            {
+                if (!Enum.TryParse<EsoData.Pricing.PriceMatchStatus>(query.PriceStatus, true, out var status) || !Enum.IsDefined(status))
+                    throw new ArgumentException("Unknown priceStatus.");
+                items = items.Where(i => i.Price.Status == status);
+            }
+            items = query.Sort switch
+            {
+                null => items,
+                "stackPriceDesc" => items.OrderByDescending(i => i.EstimatedStackPrice).ThenBy(i => i.Reference),
+                "unitPriceDesc" => items.OrderByDescending(i => i.Price.EstimatedUnitPrice).ThenBy(i => i.Reference),
+                _ => throw new ArgumentException("sort must be stackPriceDesc or unitPriceDesc.")
+            };
+            if (query.Group && query.Sort is not null) throw new ArgumentException("Price sorting applies to individual stacks; omit group.");
             if (query.Group) return items.GroupBy(i => (i.SetId, i.Location, i.Quality, i.CharacterId)).Select(g => (object)new
-            { g.Key.SetId, g.Key.Location, g.Key.Quality, g.Key.CharacterId, Count = g.Sum(i => i.Count), Stacks = g.Count() });
-            return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType });
+            { g.Key.SetId, g.Key.Location, g.Key.Quality, g.Key.CharacterId, Count = g.Sum(i => i.Count), Stacks = g.Count(),
+                PricedStacks = g.Count(i => i.EstimatedStackPrice.HasValue),
+                PricedStackEstimate = g.Any(i => i.EstimatedStackPrice.HasValue) ? g.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null });
+            return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
+                i.Price, i.EstimatedStackPrice });
         }
     }
     internal static object Project(object row, string[]? fields)

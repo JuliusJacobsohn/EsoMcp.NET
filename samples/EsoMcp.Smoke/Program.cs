@@ -34,7 +34,7 @@ try
     await using (var client = await Connect())
     {
         var tools = await client.ListToolsAsync();
-        foreach (var name in new[] { "inspect_account", "edit_build", "analyze_build", "export_build", "verify_build", "resolve_definitions", "refresh_catalog" })
+        foreach (var name in new[] { "inspect_account", "edit_build", "analyze_build", "export_build", "verify_build", "resolve_definitions", "refresh_catalog", "query_prices" })
             if (!tools.Any(t => t.Name == name)) throw new InvalidOperationException($"Missing tool {name}.");
         var requestIndex = Array.IndexOf(args, "--request");
         if (requestIndex >= 0)
