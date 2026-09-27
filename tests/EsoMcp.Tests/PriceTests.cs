@@ -10,6 +10,35 @@ namespace EsoMcp.Tests;
 public class PriceTests
 {
     [Fact]
+    public void InventoryRankingFiltersBeforeSortingAndPaginatesAfterSorting()
+    {
+        using var w = new TestWorkspace(); var store = new WorkspaceStore(w.Database.Path);
+        ItemPrice Price(decimal unit) => new(PriceMatchStatus.Matched,
+            new(new(7, 0, 1, -1, []), new(unit, unit, unit, 1, 1, unit, null, null, null)));
+        store.SaveAccounts([new() { Name = "@Example", Server = "EU", SharedStorage = [new() { Items =
+        [
+            new() { Name = "Single expensive", Location = "Bank", Count = 1, Price = Price(100) },
+            new() { Name = "Bulk cheaper", Location = "Bank", Count = 20, Price = Price(10) },
+            new() { Name = "Unknown", Location = "Bank", Count = 1000 },
+            new() { Name = "Outside bank", Location = "CraftBag", Count = 1, Price = Price(1000) }
+        ] }] }]);
+        var tool = new AccountTools(new(store, w.Database, new(), true));
+        JsonElement Query(string sort, int offset = 0) => JsonDocument.Parse(tool.Inspect(queries:
+            [new() { Section = "inventory", Location = "bank", PriceStatus = "Matched", Sort = sort,
+                Offset = offset, Limit = 1, Fields = ["name", "estimatedStackPrice"] }]))
+            .RootElement.GetProperty("results")[0];
+        var stack = Query("stackPriceDesc");
+        Assert.Equal(2, stack.GetProperty("total").GetInt32());
+        Assert.True(stack.GetProperty("hasMore").GetBoolean());
+        Assert.Equal("Bulk cheaper", stack.GetProperty("rows")[0].GetProperty("name").GetString());
+        Assert.Equal(200m, stack.GetProperty("rows")[0].GetProperty("estimatedStackPrice").GetDecimal());
+        Assert.Equal("Single expensive", Query("unitPriceDesc").GetProperty("rows")[0].GetProperty("name").GetString());
+        var second = Query("stackPriceDesc", 1);
+        Assert.False(second.GetProperty("hasMore").GetBoolean());
+        Assert.Equal("Single expensive", second.GetProperty("rows")[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
     public void CatalogIsIndependentOfAccountsRefreshesAndSurvivesOfflineRestart()
     {
         using var w = new TestWorkspace();

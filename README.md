@@ -38,6 +38,14 @@ The server reads TTC under configured `addonsPath`, with `priceLanguage` (defaul
 
 The full catalog is stored separately in SQLite `price_catalogs`; account items retain their price associations. No market data is bundled. Missing optional TTC files produce unavailable pricing; malformed existing files fail visibly. Catalog refresh does not modify build plans.
 
+For the ten highest-value owned stacks, use `inspect_account` with:
+
+```json
+{"queries":[{"section":"inventory","priceStatus":"Matched","sort":"stackPriceDesc","limit":10,"fields":["name","count","location","characterId","estimatedStackPrice"]}]}
+```
+
+Use `sort:"unitPriceDesc"` to rank by price per item instead. Both sorts work with character, location, name, item-ID and set-ID filters, plus `offset` pagination. Filtering and sorting happen before pagination. Price sorting ranks individual stacks; it does not combine separate stacks of an item or support `group:true`.
+
 ### Tool reference
 
 | Tool | Purpose |
