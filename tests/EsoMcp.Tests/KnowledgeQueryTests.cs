@@ -10,6 +10,31 @@ namespace EsoMcp.Tests;
 public class KnowledgeQueryTests
 {
     [Fact]
+    public void ChampionLookupFallsBackToInstalledCspsNames()
+    {
+        using var w = new TestWorkspace();
+        var addon = Path.Combine(w.Folder, "CarosSkillPointSaver", "data");
+        Directory.CreateDirectory(addon);
+        File.WriteAllText(Path.Combine(addon, "cpinfo.lua"), """
+            [66] = GS(SI_RIDINGTRAINTYPE1) --Steed's Blessing (Speed)
+
+            [265] = string.format("", GS()) --Ironclad
+
+            [46] = string.format("", GS()) --Bastion
+            """);
+        var options = new ImportOptions { Locations = [new(w.Folder, w.Folder)] };
+        var workspace = new AccountWorkspace(new(w.Database.Path), w.Database, options, offlineDefault: true);
+        var tools = new AccountTools(workspace, options);
+
+        using var response = JsonDocument.Parse(tools.Resolve("champion", names: ["Ironclad"]));
+        var row = response.RootElement.GetProperty("rows")[0];
+        Assert.Equal(265, row.GetProperty("id").GetInt64());
+        Assert.Equal("Warfare", row.GetProperty("discipline").GetString());
+        Assert.Equal("installed-csps", row.GetProperty("source").GetString());
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("maximumPoints").ValueKind);
+    }
+
+    [Fact]
     public void RefreshedNamesCanBeQueriedWithoutChangingLearnedState()
     {
         using var w = new TestWorkspace();

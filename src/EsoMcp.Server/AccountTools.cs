@@ -28,7 +28,7 @@ public sealed class AccountQuery
 }
 
 [McpServerToolType]
-public sealed class AccountTools(AccountWorkspace workspace)
+public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
     [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, sources or prices (pricing coverage). Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
@@ -126,7 +126,7 @@ public sealed class AccountTools(AccountWorkspace workspace)
     }
 
     [McpServerTool(Name = "resolve_definitions", ReadOnly = true, OpenWorld = false)]
-    [Description("Batch exact or substring lookups against loaded local catalogs. kind: skills, sets, items, champion. Names and IDs are definitions, not ownership. Returns bounded rows; resolve exact skill names in edit_build without a separate lookup. No network request.")]
+    [Description("Batch exact or substring lookups against loaded local catalogs. kind: skills, sets, items, champion. Champion lookup also reads names and disciplines from an installed CSPS data file; that fallback does not claim caps, prerequisites or slottability. Names and IDs are definitions, not ownership. Returns bounded rows; resolve exact skill names in edit_build without a separate lookup. No network request.")]
     public string Resolve(string kind, string[]? names = null, long[]? ids = null, int limit = 20, int offset = 0) => ToolResult.Json(() =>
     {
         if (limit is < 1 or > 100 || offset < 0) throw new ArgumentException("Invalid page.");
@@ -137,9 +137,29 @@ public sealed class AccountTools(AccountWorkspace workspace)
             "skills" => catalog.Skills.Values.Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
             "items" => catalog.Items.Values.Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
             "sets" => catalog.Sets.Values.Where(s => Match(s.Id, s.Names.GetValueOrDefault("en"))).Select(s => (object)new { s.Id, Name = s.Names.GetValueOrDefault("en") }).ToArray(),
-            "champion" => catalog.ChampionStars.Values.Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
+            "champion" => ChampionDefinitions().Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
             _ => throw new ArgumentException("kind must be skills, sets, items or champion.")
         };
         return new { Total = rows.Length, HasMore = offset + limit < rows.Length, Rows = rows.Skip(offset).Take(limit) };
+
+        IEnumerable<ChampionLookup> ChampionDefinitions()
+        {
+            var definitions = catalog.ChampionStars.Values.ToDictionary(s => s.Id, s => new ChampionLookup(s.Id,
+                s.Name, s.Discipline, s.MaximumPoints, s.Slottable, s.MinimumSlottablePoints,
+                s.Prerequisites, "catalog"));
+            foreach (var addons in (options?.Locations ?? []).Select(x => x.AddonsPath)
+                         .Where(x => x is not null).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var directory = Path.Combine(addons!, "CarosSkillPointSaver");
+                if (!File.Exists(Path.Combine(directory, "data", "cpinfo.lua"))) continue;
+                foreach (var definition in CspsChampionCatalog.Read(directory))
+                    definitions.TryAdd(definition.Id, new(definition.Id, definition.Name, definition.Discipline,
+                        null, null, null, null, "installed-csps"));
+            }
+            return definitions.Values.OrderBy(x => x.Id);
+        }
     });
+
+    private sealed record ChampionLookup(long Id, string Name, string Discipline, int? MaximumPoints,
+        bool? Slottable, int? MinimumSlottablePoints, IReadOnlyDictionary<long, int>? Prerequisites, string Source);
 }
