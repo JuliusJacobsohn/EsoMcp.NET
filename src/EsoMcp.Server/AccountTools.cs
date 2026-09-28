@@ -23,6 +23,7 @@ public sealed class AccountQuery
     public bool Group { get; set; }
     public string? PriceStatus { get; set; }
     public string? Sort { get; set; }
+    public bool IncludeDetails { get; set; }
     public int Offset { get; set; }
     public int Limit { get; set; } = 20;
 }
@@ -31,7 +32,7 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, sources or prices (pricing coverage). Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, sources or prices (pricing coverage). savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
@@ -70,7 +71,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 k.Value.Where(e => (query.Ids is null || query.Ids.Contains(e.Key)) && (query.Known is null || e.Value == query.Known))
                     .Select(e => new { Category = k.Key, ItemId = e.Key, Name = catalog?.Items.GetValueOrDefault(e.Key)?.Name, Known = e.Value })
                     .Where(e => Text(e.Name)).Cast<object>()),
-            "savedBuilds" => NeedCharacter().SavedBuilds.Select(b => (object)new { b.Id, b.Name, b.SavedAt, Sections = b.Build.Sections.ToString() }),
+            "savedBuilds" => SavedBuilds(),
             "sources" => account.Sources.Cast<object>(),
             "collections" => (account.SetCollections ?? []).Where(c => query.SetIds is null || query.SetIds.Contains(c.Key))
                 .Select(c => (object)new { SetId = c.Key, SlotMask = c.Value }),
@@ -117,6 +118,12 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
                 i.Price, i.EstimatedStackPrice });
         }
+        IEnumerable<object> SavedBuilds() => NeedCharacter().SavedBuilds
+            .Where(b => query.Text is null || b.Id.Contains(query.Text, StringComparison.OrdinalIgnoreCase)
+                || b.Name?.Contains(query.Text, StringComparison.OrdinalIgnoreCase) == true)
+            .Select(b => query.IncludeDetails
+                ? (object)new { b.Id, b.Name, b.SavedAt, Sections = b.Build.Sections.ToString(), b.Build }
+                : new { b.Id, b.Name, b.SavedAt, Sections = b.Build.Sections.ToString() });
     }
     internal static object Project(object row, string[]? fields)
     {

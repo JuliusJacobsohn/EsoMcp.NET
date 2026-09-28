@@ -51,7 +51,7 @@ Use `sort:"unitPriceDesc"` to rank by price per item instead. Both sorts work wi
 | Tool | Purpose |
 |---|---|
 | `query_prices` | Search all local TTC variants independently of account ownership |
-| `inspect_account` | Discover accounts or batch compact queries for characters, budgets, skills, inventory, equipment, knowledge, research, collections, saved builds and source coverage |
+| `inspect_account` | Discover accounts or batch compact queries for characters, budgets, skills, inventory, equipment, knowledge, research, collections, saved builds (optional typed details) and source coverage |
 | `resolve_definitions` | Batch name/ID searches in local skill, set, item or champion catalogs; CP names fall back to installed CSPS data |
 | `edit_build` | Create/copy/read/list/update/delete named targets and working builds with revision protection |
 | `analyze_build` | Validation, differences, prerequisite status, equipment candidates, set counts, leveling candidates or crafting shortages |

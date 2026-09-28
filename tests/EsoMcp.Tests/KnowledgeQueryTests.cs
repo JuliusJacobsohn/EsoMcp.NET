@@ -10,6 +10,28 @@ namespace EsoMcp.Tests;
 public class KnowledgeQueryTests
 {
     [Fact]
+    public void SavedBuildDetailsExposeBarsAndScribedSkillsOnRequest()
+    {
+        var character = new EsoCharacter { Id = "1", Name = "Example" };
+        character.SavedBuilds.Add(new("3", "Tank", DateTimeOffset.UnixEpoch, new()
+        {
+            Sections = EsoData.Builds.BuildSections.Bars,
+            Bars = new() { Front = [900001, null, null, null, null, null] },
+            ScribedSkills = [new(900001, 10, 20, 30)]
+        }));
+        using var w = new TestWorkspace();
+        var store = new WorkspaceStore(w.Database.Path);
+        store.SaveAccounts([new EsoAccount { Name = "@Example", Server = "EU", Characters = [character] }]);
+        var tools = new AccountTools(new(store, w.Database, new(), offlineDefault: true));
+
+        using var response = JsonDocument.Parse(tools.Inspect(queries:
+            [new() { Section = "savedBuilds", Character = "Example", Text = "Tank", IncludeDetails = true }]));
+        var build = response.RootElement.GetProperty("results")[0].GetProperty("rows")[0].GetProperty("build");
+        Assert.Equal(900001, build.GetProperty("bars").GetProperty("front")[0].GetInt64());
+        Assert.Single(build.GetProperty("scribedSkills").EnumerateArray());
+    }
+
+    [Fact]
     public void ChampionLookupFallsBackToInstalledCspsNames()
     {
         using var w = new TestWorkspace();
