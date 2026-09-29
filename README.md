@@ -7,9 +7,33 @@
 > [!WARNING]
 > Created with substantial help from **OpenAI Codex** and tested against my own use cases. Please do not treat this project as a measure of my abilities as a developer, for better or worse.
 
-A local **.NET 10 MCP server** for Elder Scrolls Online. Load your account, maintain named target builds, edit them incrementally, compare them with what you own and have learned, and export CSPS or crafting imports.
+EsoMcp.NET is a local **.NET 10 Model Context Protocol server** that turns Elder Scrolls Online addon data into structured tools for AI clients. It can inspect characters and account-wide items, skills, Champion Points, knowledge and collections; maintain and compare target builds; query local market prices; and generate CSPS and crafting imports. It refreshes from local files, keeps plans in SQLite and never uploads account data or modifies game files.
 
-[EsoData.NET](https://github.com/JuliusJacobsohn/EsoData.NET) owns parsing, account assembly, typed models, planning and formats. SQLite persists refreshed account documents and authored build plans separately. Every relevant request reads the local addon saves again; refreshing never overwrites plans. No account data is uploaded and no game files are modified.
+## Requirements
+
+- **ESO for PC/Mac.** Console editions cannot run the required addons.
+- The [.NET 10 Runtime or SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+- [Minion](https://minion.mmoui.com/) to install and update the ESO addons below. Install any dependency libraries Minion reports for them as well.
+
+Install and enable these addons for complete account and build data:
+
+| Addon | Data used by EsoMcp.NET |
+|---|---|
+| [Inventory Insight](https://www.esoui.com/downloads/info731-InventoryInsight.html) | Account-wide inventory locations, including characters, banks, the craft bag and storage |
+| [uespLog](https://www.esoui.com/downloads/info1257-uespLog.html) | Character details, skills and skill-line ranks, Champion Points, equipped items, research and statistics |
+| [LibCharacterKnowledge](https://www.esoui.com/downloads/info3317-LibCharacterKnowledge.html) | Recipes, furnishing plans, motifs, scribing knowledge and trait research |
+| [LibMultiAccountSets](https://www.esoui.com/downloads/info2843-LibMultiAccountSets.html) | Account set-collection progress |
+| [Caro's Skill Point Saver](https://www.esoui.com/downloads/info2901-CarosSkillPointSaver.html) | Saved builds, CSPS import/export and current Champion Point definitions |
+| [LibSets](https://www.esoui.com/downloads/info2241-LibSets.html) | Current set names and item membership |
+
+These integrations are needed only for their corresponding features:
+
+| Addon | Feature |
+|---|---|
+| [Dolgubon's Lazy Set Crafter](https://www.esoui.com/downloads/info1697-DolgubonsLazySetCrafter.html) | Read existing crafting queues and apply generated crafting imports in game |
+| [Tamriel Trade Centre](https://www.esoui.com/downloads/info1245-TamrielTradeCentre.html) | Local EU/NA price lookup; run the TTC client to keep its price tables current |
+
+Enable character-data collection in uespLog with `/uesplog on`. Log in to every character that should be represented, visit relevant storage such as the bank, then use `/reloadui` or log out normally so ESO writes the latest observations to disk. Missing providers do not stop the server, but their data and related features will be unavailable.
 
 ## Install
 
