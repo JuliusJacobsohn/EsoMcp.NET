@@ -5,7 +5,8 @@ using EsoData.Pricing;
 
 namespace EsoMcp.Import;
 
-public sealed record WorkspaceRead(AccountLoadResult Data, GameCatalog Catalog, IReadOnlyList<PriceCatalog>? Prices = null);
+public sealed record WorkspaceRead(AccountLoadResult Data, GameCatalog Catalog, IReadOnlyList<PriceCatalog>? Prices = null,
+    LazyEnchantingCatalog? Enchanting = null);
 public sealed class AccountWorkspace(WorkspaceStore store, Database definitions, ImportOptions options, bool offlineDefault = false)
 {
     public WorkspaceRead Read(bool offline = false)
@@ -17,18 +18,21 @@ public sealed class AccountWorkspace(WorkspaceStore store, Database definitions,
         catalogs.Add(definitions.ReadCatalog());
         catalogs.AddRange(options.CatalogPaths.Select(GameCatalog.Read));
         var catalog = GameCatalog.Merge(catalogs);
+        var enchantingPath = options.Locations.Select(l => l.AddonsPath is null ? null : Path.Combine(l.AddonsPath, "LibLazyCrafting"))
+            .FirstOrDefault(p => p is not null && File.Exists(Path.Combine(p, "Enchanting.lua")));
+        var enchanting = enchantingPath is null ? null : LazyEnchantingCatalog.Read(enchantingPath);
         var prices = ReadPrices(offline);
         if (offline || offlineDefault)
         {
             var accounts = store.Accounts().ToList();
             foreach (var market in prices)
                 foreach (var account in accounts.Where(a => AccountLoader.NormalizeServer(a.Server) == market.Source.Region)) market.Associate(account);
-            return new(new() { Accounts = accounts, Diagnostics = ["Explicit offline mode: using last stored account documents."] }, catalog, prices);
+            return new(new() { Accounts = accounts, Diagnostics = ["Explicit offline mode: using last stored account documents."] }, catalog, prices, enchanting);
         }
         if (options.Locations.Count == 0) throw new InvalidOperationException("No source locations configured. Use explicit offline mode to query stored snapshots.");
         var data = AccountLoader.Load(options.Locations.Select(l => new AccountInput(l.SavedVariablesPath, l.DefaultServer)), catalog, prices);
         store.SaveAccounts(data.Accounts);
-        return new(data, catalog, prices);
+        return new(data, catalog, prices, enchanting);
     }
     public IReadOnlyList<PriceCatalog> ReadPrices(bool offline = false)
     {

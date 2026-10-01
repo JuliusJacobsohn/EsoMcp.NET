@@ -94,8 +94,14 @@ public sealed class BuildTools(AccountWorkspace workspace, WorkspaceStore store)
         var read = workspace.Read(); var plan = store.Plan(id);
         var character = AccountWorkspace.Select(read, plan.AccountKey).Character(plan.CharacterId);
         if (plan.Target is not null) throw new ArgumentException("This is a declarative guide target, not a resolved executable allocation. Create a separate working build with resolved IDs and point amounts before exporting.");
-        if (format == "crafting") return (object)new { plan.Id, plan.Revision, Format = "Lazy Set Crafter", Text = BuildCodec.Crafting(plan.Crafting) };
-        if (format != "csps") throw new ArgumentException("format must be csps or crafting.");
+        if (format == "crafting")
+        {
+            if (plan.Crafting.Any(o => read.Enchanting?.Glyphs.Any(g => g.ItemId == o.ItemId) == true))
+                throw new ArgumentException("Lazy Set Crafter rejects standalone glyphs; use format=enchanting.");
+            return (object)new { plan.Id, plan.Revision, Format = "Lazy Set Crafter", Text = BuildCodec.Crafting(plan.Crafting) };
+        }
+        if (format == "enchanting") return EnchantingExport.Create(plan, AccountWorkspace.Select(read, plan.AccountKey), read);
+        if (format != "csps") throw new ArgumentException("format must be csps, crafting or enchanting.");
         var parts = sections ?? plan.Build.Sections;
         var report = BuildAnalysis.Validate(character, plan.Build, read.Catalog, plan.Constraints, parts);
         if (!report.Valid || requireReady && !report.ReadyNow) return new { plan.Id, plan.Revision, Exported = false, Validation = Compact(report) };

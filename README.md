@@ -85,6 +85,12 @@ Use `sort:"unitPriceDesc"` to rank by price per item instead. Both sorts work wi
 
 Names must resolve unambiguously. IDs are also accepted. Query results have counts, pagination and optional field selection; raw Lua, item-link blobs and repeated provenance do not accompany ordinary rows.
 
+### Existing gear and gold glyphs
+
+Use `inspect_account` inventory queries with `includeDetails:true` to inspect the observed enchant effect and quality. Applied glyphs take precedence over the built-in enchant; built-in effects require refreshed item metadata. `refresh_catalog` accepts `itemIds` for precise metadata refreshes. Missing definitions remain unknown.
+
+Resolve `kind:"glyphs"` through `resolve_definitions`, using the installed **LibLazyCrafting** rune tables. Save glyph orders in a plan's `crafting` list, then call `export_build` with `format:"enchanting"`. It returns exact rune requirements, account-wide stock/shortages and pasteable ESO chat commands. Paste each line once on the crafter, visit an enchanting station, then apply the loose glyphs manually. Finish before reload/logout because the queue is held in game memory. Lazy Set Crafter's **Import Links** rejects standalone glyphs; `format:"crafting"` rejects known glyph orders to prevent unusable imports. Existing dropped gear must be upgraded through the in-game improvement UI.
+
 Call `refresh_catalog` with no arguments to download Grimoire/script names for the IDs in local knowledge coverage. Both learned and unlearned entries are included; only definition IDs are sent to UESP. Subsequent `knowledge` queries include names and support `text` filtering. Unknown definitions retain a null name. Learned scripts establish availability, not which combination was actually scribed or whether a quest was completed.
 
 ## Typical workflow

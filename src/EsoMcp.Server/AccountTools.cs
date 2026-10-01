@@ -39,11 +39,11 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
         if (queries is null || queries.Length == 0) return (object)new { Accounts = read.Data.Accounts.Select(a => new { a.Key, a.Name, a.Server, Characters = a.Characters.Count }), read.Data.Diagnostics };
         if (queries.Length > 20) throw new ArgumentException("At most 20 queries per request.");
         var selected = AccountWorkspace.Select(read, account);
-        return new { Account = selected.Key, selected.PriceSource, Results = queries.Select(q => Query(selected, q, read.Catalog)).ToArray(),
+        return new { Account = selected.Key, selected.PriceSource, Results = queries.Select(q => Query(selected, q, read.Catalog, read.Enchanting)).ToArray(),
             Diagnostics = read.Data.Diagnostics.Concat(selected.Sources.SelectMany(s => s.Diagnostics)).Distinct().ToArray() };
     });
 
-    internal static object Query(EsoAccount account, AccountQuery query, GameCatalog? catalog = null)
+    internal static object Query(EsoAccount account, AccountQuery query, GameCatalog? catalog = null, LazyEnchantingCatalog? enchanting = null)
     {
         if (query.Offset < 0 || query.Limit is < 1 or > 100) throw new ArgumentException("Use offset >= 0 and limit 1..100.");
         var character = query.Character is null ? null : account.Character(query.Character);
@@ -116,7 +116,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 PricedStacks = g.Count(i => i.EstimatedStackPrice.HasValue),
                 PricedStackEstimate = g.Any(i => i.EstimatedStackPrice.HasValue) ? g.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null });
             return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
-                i.Price, i.EstimatedStackPrice });
+                i.Price, i.EstimatedStackPrice, Enchantment = query.IncludeDetails && catalog is not null ? enchanting?.Observe(i, catalog) : null });
         }
         IEnumerable<object> SavedBuilds() => NeedCharacter().SavedBuilds
             .Where(b => query.Text is null || b.Id.Contains(query.Text, StringComparison.OrdinalIgnoreCase)
@@ -133,19 +133,20 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
     }
 
     [McpServerTool(Name = "resolve_definitions", ReadOnly = true, OpenWorld = false)]
-    [Description("Batch exact or substring lookups against loaded local catalogs. kind: skills, sets, items, champion. Champion lookup also reads names and disciplines from an installed CSPS data file; that fallback does not claim caps, prerequisites or slottability. Names and IDs are definitions, not ownership. Returns bounded rows; resolve exact skill names in edit_build without a separate lookup. No network request.")]
+    [Description("Batch exact or substring lookups against local catalogs. kind: skills, sets, items, glyphs, champion. Glyph IDs/effects/runes come from installed LibLazyCrafting. Champion names fall back to installed CSPS; no guessed caps or prerequisites. Definitions are not ownership. Bounded rows. No network request.")]
     public string Resolve(string kind, string[]? names = null, long[]? ids = null, int limit = 20, int offset = 0) => ToolResult.Json(() =>
     {
         if (limit is < 1 or > 100 || offset < 0) throw new ArgumentException("Invalid page.");
-        var catalog = workspace.Read().Catalog;
+        var read = workspace.Read(); var catalog = read.Catalog;
         bool Match(long id, string? name) => (ids is null || ids.Contains(id)) && (names is null || names.Any(n => name?.Contains(n, StringComparison.OrdinalIgnoreCase) == true));
         object[] rows = kind switch
         {
             "skills" => catalog.Skills.Values.Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
             "items" => catalog.Items.Values.Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
+            "glyphs" => (read.Enchanting?.Glyphs ?? []).Where(s => Match(s.ItemId, s.Name)).Cast<object>().ToArray(),
             "sets" => catalog.Sets.Values.Where(s => Match(s.Id, s.Names.GetValueOrDefault("en"))).Select(s => (object)new { s.Id, Name = s.Names.GetValueOrDefault("en") }).ToArray(),
             "champion" => ChampionDefinitions().Where(s => Match(s.Id, s.Name)).Cast<object>().ToArray(),
-            _ => throw new ArgumentException("kind must be skills, sets, items or champion.")
+            _ => throw new ArgumentException("kind must be skills, sets, items, glyphs or champion.")
         };
         return new { Total = rows.Length, HasMore = offset + limit < rows.Length, Rows = rows.Skip(offset).Take(limit) };
 
