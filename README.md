@@ -61,6 +61,8 @@ Loot Log is optional. Its retained history is installation/server scoped and nev
 
 For other players' item drops, each row includes `whisper` with `recipient`, `itemLink`, `message` and a copyable `command`. Copy the command into ESO chat and send it yourself. The link preserves the exact observed variant/enchantments, with its display name filled from the catalog when needed. Own-account drops and non-item events have no draft. Project `fields:["name","recipientAccount","receivedAt","whisper"]` for a compact list. Formatting does not establish whether the item remains tradeable.
 
+Use `section:"lootHistory", group:true` for one row per player, with their matching `drops` and combined `whispers`. Each whisper contains complete item links and is split conservatively so its entire command fits 350 characters. Commands prefer the latest observed character name (`/w Character Name, message`); account fallback uses `/w @account message`, without a comma. Group filters apply to drops before grouping, and pagination counts players. Character names with spaces are supported. See [ESO's documented whisper syntax](https://help.elderscrollsonline.com/app/answers/detail/a_id/2556/).
+
 ### Local TTC pricing
 
 `query_prices` searches the **entire** downloaded TTC market catalog, including items not owned by any account. Example: `{"region":"EU","text":"dreugh wax","limit":5}`. Filters include `ttcItemIds` (not ESO IDs), ESO `quality` (1–5), `marketLevel` (50+CP), `ttcTrait` and the `extra` variant path. Listing statistics and sale statistics remain separate; results include source dates and bounded pagination.

@@ -33,7 +33,7 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. lootHistory group=true combines drops by player into bounded whispers using character names. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
@@ -123,6 +123,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
         }
         IEnumerable<object> LootHistory()
         {
+            var found = new List<(EsoData.Addons.LootEvent Entry, object Row)>();
             foreach (var entry in account.LootHistory?.Events ?? [])
             {
                 var definition = entry.ItemId is long id ? catalog?.Items.GetValueOrDefault(id) : null;
@@ -132,14 +133,23 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 if (character is not null && (!string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(entry.RecipientCharacter, character.Name, StringComparison.OrdinalIgnoreCase))) continue;
                 if (!Text(definition?.Name) && !Text(setName) && !Text(entry.RecipientAccount) && !Text(entry.RecipientCharacter)) continue;
-                yield return new { entry.Server, entry.ReceivedAt, entry.RecipientAccount, entry.RecipientCharacter,
+                var row = new { entry.Server, entry.ReceivedAt, entry.RecipientAccount, entry.RecipientCharacter,
                     entry.Quantity, entry.ItemId, Name = definition?.Name, definition?.SetId, SetName = setName,
                     definition?.Trait, definition?.WeaponType, definition?.ArmorType, definition?.EquipType,
                     entry.Personal, entry.Notable, entry.SetItem, entry.Link,
                     Whisper = string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
                         ? null : LootWhisper.Create(entry, definition?.Name),
                     Scope = "installation/server", FileWrittenAt = account.LootHistory!.Source.FileWrittenAt };
+                found.Add((entry, row));
             }
+            if (!query.Group) return found.Select(e => e.Row);
+            return found.GroupBy(e => e.Entry.RecipientAccount, StringComparer.OrdinalIgnoreCase).Select(g => (object)new
+            {
+                g.First().Entry.RecipientAccount, g.First().Entry.RecipientCharacter,
+                Count = g.Count(), Drops = g.Select(e => e.Row).ToArray(),
+                Whispers = string.Equals(g.Key, account.Name, StringComparison.OrdinalIgnoreCase) ? []
+                    : LootWhisper.CreateMany(g.Select(e => e.Entry), e => e.ItemId is long id ? catalog?.Items.GetValueOrDefault(id)?.Name : null)
+            });
         }
         IEnumerable<object> SavedBuilds() => NeedCharacter().SavedBuilds
             .Where(b => query.Text is null || b.Id.Contains(query.Text, StringComparison.OrdinalIgnoreCase)
