@@ -32,6 +32,7 @@ These integrations are needed only for their corresponding features:
 |---|---|
 | [Dolgubon's Lazy Set Crafter](https://www.esoui.com/downloads/info1697-DolgubonsLazySetCrafter.html) | Read existing crafting queues and apply generated crafting imports in game |
 | [Tamriel Trade Centre](https://www.esoui.com/downloads/info1245-TamrielTradeCentre.html) | Local EU/NA price lookup; run the TTC client to keep its price tables current |
+| [Loot Log](https://www.esoui.com/downloads/info1455-LootLog.html) | Retained group drops, with recipient account/character and time |
 
 Enable character-data collection in uespLog with `/uesplog on`. Log in to every character that should be represented, visit relevant storage such as the bank, then use `/reloadui` or log out normally so ESO writes the latest observations to disk. Missing providers do not stop the server, but their data and related features will be unavailable.
 
@@ -51,6 +52,12 @@ Other clients use the equivalent stdio command and arguments. Without a configur
 Existing MCP sessions may retain their old process/tool schemas; reconnect the server or start a new session after upgrading. The server logs to stderr and reserves stdout for MCP messages.
 
 ## Tools
+
+### Retained group loot
+
+`inspect_account` accepts `section:"lootHistory"`. Use `text` to search item/set names or recipients, `setIds` to select a set and `ids` to select ESO item IDs. `character` limits recipients to that character on the selected account. Rows are newest first, support standard pagination/projection, and include recipient, time, quantity, link, catalog metadata and source file time. Missing definitions remain null; `refresh_catalog` can fetch metadata for observed item IDs.
+
+Loot Log is optional. Its retained history is installation/server scoped and never establishes inventory ownership. The addon prunes older entries according to its history setting, so this is not a permanent record of every trial. Newly recorded drops appear after `/reloadui` or normal logout; `offline:true` queries the last SQLite snapshot.
 
 ### Local TTC pricing
 

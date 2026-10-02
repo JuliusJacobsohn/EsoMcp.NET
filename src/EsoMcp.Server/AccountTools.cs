@@ -32,7 +32,7 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, sources or prices (pricing coverage). savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
@@ -59,6 +59,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 && (!query.UnfinishedOnly || !s.IsPassive && !(s.Morph > 0 && s.Rank >= 4))).Cast<object>(),
             "skillLines" => (NeedCharacter().Progress.SkillLines ?? []).Where(s => Text(s.Key)).Select(s => (object)new { Name = s.Key, Rank = s.Value }),
             "inventory" => Inventory(),
+            "lootHistory" => LootHistory(),
             "prices" => [new { account.PriceSource, Stacks = account.Inventory.Count(),
                 StatusCounts = account.Inventory.GroupBy(i => i.Price.Status).ToDictionary(g => g.Key.ToString(), g => g.Count()),
                 PricedStackEstimate = account.Inventory.Any(i => i.EstimatedStackPrice.HasValue)
@@ -87,6 +88,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             "champion" => NeedCharacter().Build.Sections.HasFlag(BuildSections.ChampionPoints),
             "collections" => account.SetCollections is not null,
             "prices" => account.PriceSource is not null,
+            "lootHistory" => account.LootHistory is not null,
             _ => true
         };
         return new { query.Section, Available = available, Total = all.Length, query.Offset,
@@ -117,6 +119,24 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 PricedStackEstimate = g.Any(i => i.EstimatedStackPrice.HasValue) ? g.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null });
             return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
                 i.Price, i.EstimatedStackPrice, Enchantment = query.IncludeDetails && catalog is not null ? enchanting?.Observe(i, catalog) : null });
+        }
+        IEnumerable<object> LootHistory()
+        {
+            foreach (var entry in account.LootHistory?.Events ?? [])
+            {
+                var definition = entry.ItemId is long id ? catalog?.Items.GetValueOrDefault(id) : null;
+                var setName = definition?.SetId is long setId ? catalog?.Sets.GetValueOrDefault(setId)?.Names.GetValueOrDefault("en") : null;
+                if (query.Ids is not null && (entry.ItemId is not long itemId || !query.Ids.Contains(itemId))) continue;
+                if (query.SetIds is not null && (definition?.SetId is not long set || !query.SetIds.Contains(set))) continue;
+                if (character is not null && (!string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(entry.RecipientCharacter, character.Name, StringComparison.OrdinalIgnoreCase))) continue;
+                if (!Text(definition?.Name) && !Text(setName) && !Text(entry.RecipientAccount) && !Text(entry.RecipientCharacter)) continue;
+                yield return new { entry.Server, entry.ReceivedAt, entry.RecipientAccount, entry.RecipientCharacter,
+                    entry.Quantity, entry.ItemId, Name = definition?.Name, definition?.SetId, SetName = setName,
+                    definition?.Trait, definition?.WeaponType, definition?.ArmorType, definition?.EquipType,
+                    entry.Personal, entry.Notable, entry.SetItem, entry.Link,
+                    Scope = "installation/server", FileWrittenAt = account.LootHistory!.Source.FileWrittenAt };
+            }
         }
         IEnumerable<object> SavedBuilds() => NeedCharacter().SavedBuilds
             .Where(b => query.Text is null || b.Id.Contains(query.Text, StringComparison.OrdinalIgnoreCase)
