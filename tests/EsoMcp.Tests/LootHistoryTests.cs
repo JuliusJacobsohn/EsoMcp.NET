@@ -39,6 +39,18 @@ public class LootHistoryTests
         var drops = all.RootElement.GetProperty("results")[0].GetProperty("rows");
         Assert.Equal(3, drops.GetArrayLength());
         Assert.Equal(JsonValueKind.Null, drops[2].GetProperty("collected").ValueKind);
+        using var traits = JsonDocument.Parse(tools.Inspect(queries:
+            [new() { Section = "lootHistory", Traits = [4], Ids = [201], Group = true }], offline: true));
+        var traitPlayer = traits.RootElement.GetProperty("results")[0].GetProperty("rows")[0];
+        Assert.Equal(1, traitPlayer.GetProperty("count").GetInt32());
+        Assert.True(traitPlayer.GetProperty("drops")[0].GetProperty("collected").GetBoolean());
+        Assert.Contains("Collected Staff", traitPlayer.GetProperty("whispers")[0].GetProperty("command").GetString());
+        using var combined = JsonDocument.Parse(tools.Inspect(queries:
+            [new() { Section = "lootHistory", Known = false, Traits = [4], Group = true }], offline: true));
+        Assert.Equal(1, combined.RootElement.GetProperty("results")[0].GetProperty("rows")[0].GetProperty("count").GetInt32());
+        using var noTrait = JsonDocument.Parse(tools.Inspect(queries:
+            [new() { Section = "lootHistory", Traits = [99], Group = true }], offline: true));
+        Assert.Equal(0, noTrait.RootElement.GetProperty("results")[0].GetProperty("total").GetInt32());
     }
 
     [Fact]
