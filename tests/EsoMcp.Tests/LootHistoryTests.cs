@@ -79,12 +79,12 @@ public class LootHistoryTests
         Assert.Equal(1, result.GetProperty("total").GetInt32());
         Assert.Equal("@Friend", result.GetProperty("rows")[0].GetProperty("recipientAccount").GetString());
         var whisper = result.GetProperty("rows")[0].GetProperty("whisper");
-        Assert.StartsWith("/w Friend, ", whisper.GetProperty("command").GetString());
+        Assert.StartsWith("/w @Friend ", whisper.GetProperty("command").GetString());
         Assert.Contains("|hExample Ice Staff|h", whisper.GetProperty("itemLink").GetString());
         Assert.Single(Assert.Single(workspace.Read(offline: true).Data.Accounts).LootHistory!.Events);
         var grouped = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory", Group = true }])).RootElement.GetProperty("results")[0];
         Assert.Equal("@Friend", grouped.GetProperty("rows")[0].GetProperty("recipientAccount").GetString());
-        Assert.StartsWith("/w Friend, ", grouped.GetProperty("rows")[0].GetProperty("whispers")[0].GetProperty("command").GetString());
+        Assert.StartsWith("/w @Friend ", grouped.GetProperty("rows")[0].GetProperty("whispers")[0].GetProperty("command").GetString());
         var own = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory", Character = "Self" }])).RootElement.GetProperty("results")[0];
         Assert.Equal(0, own.GetProperty("total").GetInt32());
     }
@@ -132,6 +132,6 @@ public class LootHistoryTests
         Assert.Equal(2, result.GetProperty("total").GetInt32());
         Assert.Equal(2, result.GetProperty("rows")[0].GetProperty("count").GetInt32());
         Assert.Equal(2, result.GetProperty("rows")[0].GetProperty("whispers")[0].GetProperty("itemLinks").GetArrayLength());
-        Assert.Equal("Other", result.GetProperty("rows")[1].GetProperty("whispers")[0].GetProperty("recipient").GetString());
+        Assert.Equal("@Other", result.GetProperty("rows")[1].GetProperty("whispers")[0].GetProperty("recipient").GetString());
     }
 }
