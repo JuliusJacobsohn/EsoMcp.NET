@@ -34,7 +34,7 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. lootHistory group=true combines drops by player into bounded whispers using character names. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. lootHistory group=true combines drops by player into bounded whispers using character names. known=false limits loot to confirmed uncollected pieces on the selected account; known=true selects collected pieces. Unknown collection mappings match neither filter. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
@@ -143,6 +143,9 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             {
                 var definition = entry.ItemId is long id ? catalog?.Items.GetValueOrDefault(id) : null;
                 var setName = definition?.SetId is long setId ? catalog?.Sets.GetValueOrDefault(setId)?.Names.GetValueOrDefault("en") : null;
+                var collected = entry.ItemId is long collectionId && catalog is not null
+                    ? CollectionPieceLookup.IsCollected(collectionId, catalog, account.SetCollections) : null;
+                if (query.Known is not null && collected != query.Known) continue;
                 if (query.Ids is not null && (entry.ItemId is not long itemId || !query.Ids.Contains(itemId))) continue;
                 if (query.SetIds is not null && (definition?.SetId is not long set || !query.SetIds.Contains(set))) continue;
                 if (character is not null && (!string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
@@ -151,7 +154,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 var row = new { entry.Server, entry.ReceivedAt, entry.RecipientAccount, entry.RecipientCharacter,
                     entry.Quantity, entry.ItemId, Name = definition?.Name, definition?.SetId, SetName = setName,
                     definition?.Trait, definition?.WeaponType, definition?.ArmorType, definition?.EquipType,
-                    entry.Personal, entry.Notable, entry.SetItem, entry.Link,
+                    entry.Personal, entry.Notable, entry.SetItem, entry.Link, Collected = collected,
                     Whisper = string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
                         ? null : LootWhisper.Create(entry, definition?.Name),
                     Scope = "installation/server", FileWrittenAt = account.LootHistory!.Source.FileWrittenAt };

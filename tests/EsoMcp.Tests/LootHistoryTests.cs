@@ -9,6 +9,39 @@ namespace EsoMcp.Tests;
 public class LootHistoryTests
 {
     [Fact]
+    public void UncollectedFilterRemovesRegisteredTraitVariantsBeforeWhispersAreGrouped()
+    {
+        using var w = new TestWorkspace();
+        var store = new WorkspaceStore(w.Database.Path);
+        EsoData.Addons.LootEvent Drop(int item) => new("EU", DateTimeOffset.UnixEpoch,
+            $"|H0:item:{item}:362:50:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h|h", 1,
+            "@Friend", "Friend", 15, item, false, true, true);
+        store.SaveAccounts([new() { Name = "@Self", Server = "EU", SetCollections = new() { [7] = 8192 },
+            LootHistory = new() { Events = [Drop(201), Drop(202), Drop(999)] } }]);
+        var catalog = new GameCatalog
+        {
+            CollectionPieces = [new(7, 101, 8192), new(7, 102, 2)],
+            Items = { [101] = new(101, SetId: 7, EquipType: 6, ArmorType: 0, WeaponType: 13),
+                [102] = new(102, SetId: 7, EquipType: 6, ArmorType: 0, WeaponType: 15),
+                [201] = new(201, "Collected Staff", 7, 6, 0, 13, 4),
+                [202] = new(202, "Missing Staff", 7, 6, 0, 15, 4) }
+        };
+        var path = Path.Combine(w.Folder, "catalog.json"); catalog.Write(path);
+        var tools = new AccountTools(new(store, w.Database, new() { CatalogPaths = [path] }));
+        using var result = JsonDocument.Parse(tools.Inspect(queries:
+            [new() { Section = "lootHistory", Known = false, Group = true }], offline: true));
+        var player = result.RootElement.GetProperty("results")[0].GetProperty("rows")[0];
+        Assert.Equal(1, player.GetProperty("count").GetInt32());
+        Assert.False(player.GetProperty("drops")[0].GetProperty("collected").GetBoolean());
+        Assert.Contains("Missing Staff", player.GetProperty("whispers")[0].GetProperty("command").GetString());
+        Assert.DoesNotContain("Collected Staff", player.GetProperty("whispers")[0].GetProperty("command").GetString());
+        using var all = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory" }], offline: true));
+        var drops = all.RootElement.GetProperty("results")[0].GetProperty("rows");
+        Assert.Equal(3, drops.GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, drops[2].GetProperty("collected").ValueKind);
+    }
+
+    [Fact]
     public void HistoryPersistsAndFiltersRecipientsAndCatalogSetsWithoutInventingOwnership()
     {
         using var w = new TestWorkspace();
