@@ -4,6 +4,7 @@ using EsoData.Accounts;
 using EsoData.Builds;
 using EsoData.Catalogs;
 using EsoData.Formats;
+using EsoData.Addons;
 using EsoMcp.Import;
 using ModelContextProtocol.Server;
 
@@ -75,8 +76,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                     .Where(e => Text(e.Name)).Cast<object>()),
             "savedBuilds" => SavedBuilds(),
             "sources" => account.Sources.Cast<object>(),
-            "collections" => (account.SetCollections ?? []).Where(c => query.SetIds is null || query.SetIds.Contains(c.Key))
-                .Select(c => (object)new { SetId = c.Key, SlotMask = c.Value }),
+            "collections" => Collections(),
             _ => throw new ArgumentException("Unknown account section.")
         };
         var all = rows.ToArray();
@@ -94,6 +94,21 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
         };
         return new { query.Section, Available = available, Total = all.Length, query.Offset,
             HasMore = query.Offset + query.Limit < all.Length, Rows = all.Skip(query.Offset).Take(query.Limit).Select(r => Project(r, query.Fields)).ToArray() };
+
+        IEnumerable<object> Collections()
+        {
+            var setIds = query.SetIds ?? (account.SetCollections?.Keys.ToArray() ?? []);
+            foreach (var setId in setIds)
+            {
+                var name = catalog?.Sets.GetValueOrDefault(setId)?.Names.GetValueOrDefault("en");
+                if (!Text(name)) continue;
+                long? mask = account.SetCollections?.TryGetValue(setId, out var value) == true ? value : null;
+                var progress = SetCollectionProgress.Describe(setId, mask, catalog);
+                yield return new { progress.SetId, Name = name, progress.SlotMask, progress.CollectedCount,
+                    progress.TotalCount, progress.Complete, progress.ReconstructionCrystals, progress.UnknownSlotMask,
+                    Pieces = query.IncludeDetails ? progress.Pieces : null };
+            }
+        }
 
         IEnumerable<object> Inventory()
         {

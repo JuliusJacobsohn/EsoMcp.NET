@@ -2,6 +2,7 @@ using EsoData.Accounts;
 using EsoData.Catalogs;
 using EsoMcp.Core;
 using EsoData.Pricing;
+using EsoData.Addons;
 
 namespace EsoMcp.Import;
 
@@ -13,8 +14,12 @@ public sealed class AccountWorkspace(WorkspaceStore store, Database definitions,
     {
         var catalogs = new List<GameCatalog>();
         foreach (var location in options.Locations)
+        {
             if (location.AddonsPath is string addons && Directory.Exists(Path.Combine(addons, "LibSets")))
                 catalogs.Add(LibSetsCatalog.Read(Path.Combine(addons, "LibSets")));
+            var collectionPath = Path.Combine(location.SavedVariablesPath, "LibMultiAccountSets.lua");
+            if (File.Exists(collectionPath)) catalogs.Add(SetCollectionCatalog.Read(collectionPath));
+        }
         catalogs.Add(definitions.ReadCatalog());
         catalogs.AddRange(options.CatalogPaths.Select(GameCatalog.Read));
         var catalog = GameCatalog.Merge(catalogs);

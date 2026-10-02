@@ -57,6 +57,14 @@ Existing MCP sessions may retain their old process/tool schemas; reconnect the s
 
 `inspect_account` accepts `section:"lootHistory"`. Use `text` to search item/set names or recipients, `setIds` to select a set and `ids` to select ESO item IDs. `character` limits recipients to that character on the selected account. Rows are newest first, support standard pagination/projection, and include recipient, time, quantity, link, catalog metadata and source file time. Missing definitions remain null; `refresh_catalog` can fetch metadata for observed item IDs.
 
+Collection queries (`section:"collections"`) include registered counts, total pieces, completion and reconstruction crystal cost. Use `includeDetails:true` for named collected/missing pieces. LibMultiAccountSets normally saves only bit masks; exact piece definitions must be supplied in a JSON catalog or captured once per set from the game API. The optional capture lives in the existing addon's SavedVariables and is read through EsoData.NET; the server never writes game files. Replace `331` in both places below with the desired set ID, run this in game chat and flush with `/reloadui`:
+
+```text
+/script local t={} for i=1,GetNumItemSetCollectionPieces(331) do local p,s=GetItemSetCollectionPieceInfo(331,i) t[i]={p,Id64ToNumber(s),GetItemSetCollectionPieceItemLink(p)} end LibMultiAccountSetsSavedVariables.EsoDataPieces=LibMultiAccountSetsSavedVariables.EsoDataPieces or {} LibMultiAccountSetsSavedVariables.EsoDataPieces[331]=t
+```
+
+This captures definitions, not account ownership. Collection progress continues to refresh automatically from the addon. Repeat the capture only if that set's available piece types change. Names fall back to the normal refreshable item catalog when the game returns unlabeled links. Unknown piece definitions or unmapped mask bits leave completion/cost unknown. Quality upgrade materials are separate from the reported crystal cost.
+
 Loot Log is optional. Its retained history is installation/server scoped and never establishes inventory ownership. The addon prunes older entries according to its history setting, so this is not a permanent record of every trial. Newly recorded drops appear after `/reloadui` or normal logout; `offline:true` queries the last SQLite snapshot.
 
 For other players' item drops, each row includes `whisper` with `recipient`, `itemLink`, `message` and a copyable `command`. Copy the command into ESO chat and send it yourself. The link preserves the exact observed variant/enchantments, with its display name filled from the catalog when needed. Own-account drops and non-item events have no draft. Project `fields:["name","recipientAccount","receivedAt","whisper"]` for a compact list. Formatting does not establish whether the item remains tradeable.
