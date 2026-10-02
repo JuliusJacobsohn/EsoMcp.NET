@@ -59,6 +59,8 @@ Existing MCP sessions may retain their old process/tool schemas; reconnect the s
 
 Loot Log is optional. Its retained history is installation/server scoped and never establishes inventory ownership. The addon prunes older entries according to its history setting, so this is not a permanent record of every trial. Newly recorded drops appear after `/reloadui` or normal logout; `offline:true` queries the last SQLite snapshot.
 
+For other players' item drops, each row includes `whisper` with `recipient`, `itemLink`, `message` and a copyable `command`. Copy the command into ESO chat and send it yourself. The link preserves the exact observed variant/enchantments, with its display name filled from the catalog when needed. Own-account drops and non-item events have no draft. Project `fields:["name","recipientAccount","receivedAt","whisper"]` for a compact list. Formatting does not establish whether the item remains tradeable.
+
 ### Local TTC pricing
 
 `query_prices` searches the **entire** downloaded TTC market catalog, including items not owned by any account. Example: `{"region":"EU","text":"dreugh wax","limit":5}`. Filters include `ttcItemIds` (not ESO IDs), ESO `quality` (1–5), `marketLevel` (50+CP), `ttcTrait` and the `extra` variant path. Listing statistics and sale statistics remain separate; results include source dates and bounded pagination.

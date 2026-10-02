@@ -3,6 +3,7 @@ using System.Text.Json;
 using EsoData.Accounts;
 using EsoData.Builds;
 using EsoData.Catalogs;
+using EsoData.Formats;
 using EsoMcp.Import;
 using ModelContextProtocol.Server;
 
@@ -32,7 +33,7 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
@@ -135,6 +136,8 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                     entry.Quantity, entry.ItemId, Name = definition?.Name, definition?.SetId, SetName = setName,
                     definition?.Trait, definition?.WeaponType, definition?.ArmorType, definition?.EquipType,
                     entry.Personal, entry.Notable, entry.SetItem, entry.Link,
+                    Whisper = string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
+                        ? null : LootWhisper.Create(entry, definition?.Name),
                     Scope = "installation/server", FileWrittenAt = account.LootHistory!.Source.FileWrittenAt };
             }
         }

@@ -33,6 +33,9 @@ public class LootHistoryTests
         var result = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory", SetIds = [456] }])).RootElement.GetProperty("results")[0];
         Assert.Equal(1, result.GetProperty("total").GetInt32());
         Assert.Equal("@Friend", result.GetProperty("rows")[0].GetProperty("recipientAccount").GetString());
+        var whisper = result.GetProperty("rows")[0].GetProperty("whisper");
+        Assert.StartsWith("/w @Friend, ", whisper.GetProperty("command").GetString());
+        Assert.Contains("|hExample Ice Staff|h", whisper.GetProperty("itemLink").GetString());
         Assert.Single(Assert.Single(workspace.Read(offline: true).Data.Accounts).LootHistory!.Events);
         var own = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory", Character = "Self" }])).RootElement.GetProperty("results")[0];
         Assert.Equal(0, own.GetProperty("total").GetInt32());
@@ -47,5 +50,21 @@ public class LootHistoryTests
         var tools = new AccountTools(new AccountWorkspace(store, w.Database, new()));
         var result = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory" }], offline: true)).RootElement.GetProperty("results")[0];
         Assert.False(result.GetProperty("available").GetBoolean());
+    }
+
+    [Fact]
+    public void OwnAccountDropsDoNotGenerateRequests()
+    {
+        using var w = new TestWorkspace();
+        var store = new WorkspaceStore(w.Database.Path);
+        store.SaveAccounts([new() { Name = "@Self", Server = "EU", LootHistory = new()
+        {
+            Events = [new("EU", DateTimeOffset.UnixEpoch,
+                "|H0:item:123:362:50:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h|h", 1,
+                "@self", "Self", 30, 123, true, true, true)]
+        } }]);
+        var tools = new AccountTools(new AccountWorkspace(store, w.Database, new()));
+        var result = JsonDocument.Parse(tools.Inspect(queries: [new() { Section = "lootHistory", Fields = ["whisper"] }], offline: true));
+        Assert.Equal(JsonValueKind.Null, result.RootElement.GetProperty("results")[0].GetProperty("rows")[0].GetProperty("whisper").ValueKind);
     }
 }
