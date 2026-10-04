@@ -175,7 +175,9 @@ A plan stores guide URLs with retrieval dates and variant names. Add explicit re
 
 Skill progression and purchased allocation are separate. A refunded skill is not automatically unlearned, but sources do not reveal every unpurchased morph's progression. A maxed base ability does not satisfy a requirement for its morph. Respec analysis uses total points and exposes currently unspent points separately.
 
-Crafting orders contain item ID, level/CP, quality, style, quantity and per-item enchantment ID/quality. `export_build` with `format:"crafting"` generates Lazy Set Crafter links. `analyze_build` with `section:"crafting"` and `crafter` compares exact external-catalog recipes with account materials and knowledge. If exact recipe/cost data is unavailable, it returns that gap instead of inventing a material shopping list. Food/potion queue exports are not implied by support for equipment links.
+Crafting orders contain item ID, level/CP, quality, style, quantity and per-item enchantment ID/quality. `export_build` with `format:"crafting"` generates Lazy Set Crafter equipment links. `analyze_build` with `section:"crafting"` and `crafter` compares exact external-catalog recipes with account materials and knowledge. If exact recipe/cost data is unavailable, it returns that gap instead of inventing a material shopping list.
+
+For food/drinks, save the **learnable recipe item ID** in each crafting order and call `export_build` with `format:"provisioning"`. The named crafter must have observed, learned recipe knowledge. The exporter generates LibLazyCrafting chat queue commands that resolve recipe indices and recheck knowledge in game; paste once on that crafter and visit a cooking fire. Quantity means **craft iterations**, not servings: yield depends on provisioning passives. Recipe quality and level are fixed; equipment quality/level fields do not override them. Ingredients and skill requirements are checked in game, and the queue is lost on reload/logout. Lazy Set Crafter rejects recipe imports; potion queues are unsupported.
 
 ## Catalogs and known data limits
 

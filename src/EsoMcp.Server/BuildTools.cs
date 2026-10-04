@@ -88,7 +88,7 @@ public sealed class BuildTools(AccountWorkspace workspace, WorkspaceStore store)
     });
 
     [McpServerTool(Name = "export_build", ReadOnly = true, OpenWorld = false)]
-    [Description("Export a saved plan as native CSPS (default) or crafting links. Explicit sections: Skills, Bars, Attributes, ChampionPoints, Equipment, Mundus (comma separated). Omitted sections remain untouched in CSPS. Checks the exact exported revision against fresh data. Structural errors block export. requireReady=true also blocks unknown/unmet game requirements. Default allows a future target but returns its limitations. Does not apply anything in game.")]
+    [Description("Export a saved plan as native CSPS (default), crafting equipment links, enchanting glyph queues or provisioning recipe queues. Provisioning requires learned recipe item IDs; quantities are craft iterations, not servings, and recipe quality/level are fixed in game. Explicit CSPS sections: Skills, Bars, Attributes, ChampionPoints, Equipment, Mundus (comma separated). Omitted sections remain untouched in CSPS. Checks the exact exported revision against fresh data. Structural errors block export. requireReady=true also blocks unknown/unmet game requirements. Default allows a future target but returns its limitations. Does not apply anything in game.")]
     public string Export(string id, string format = "csps", BuildSections? sections = null, bool requireReady = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(); var plan = store.Plan(id);
@@ -98,10 +98,13 @@ public sealed class BuildTools(AccountWorkspace workspace, WorkspaceStore store)
         {
             if (plan.Crafting.Any(o => read.Enchanting?.Glyphs.Any(g => g.ItemId == o.ItemId) == true))
                 throw new ArgumentException("Lazy Set Crafter rejects standalone glyphs; use format=enchanting.");
+            if (plan.Crafting.Any(o => character.Progress.Knowledge.TryGetValue("recipes", out var recipes) && recipes.ContainsKey(o.ItemId)))
+                throw new ArgumentException("Lazy Set Crafter rejects recipes; use format=provisioning.");
             return (object)new { plan.Id, plan.Revision, Format = "Lazy Set Crafter", Text = BuildCodec.Crafting(plan.Crafting) };
         }
         if (format == "enchanting") return EnchantingExport.Create(plan, AccountWorkspace.Select(read, plan.AccountKey), read);
-        if (format != "csps") throw new ArgumentException("format must be csps, crafting or enchanting.");
+        if (format == "provisioning") return ProvisioningExport.Create(plan, AccountWorkspace.Select(read, plan.AccountKey), read);
+        if (format != "csps") throw new ArgumentException("format must be csps, crafting, enchanting or provisioning.");
         var parts = sections ?? plan.Build.Sections;
         var report = BuildAnalysis.Validate(character, plan.Build, read.Catalog, plan.Constraints, parts);
         if (!report.Valid || requireReady && !report.ReadyNow) return new { plan.Id, plan.Revision, Exported = false, Validation = Compact(report) };
