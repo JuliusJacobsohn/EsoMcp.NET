@@ -35,14 +35,16 @@ public sealed class AccountQuery
 public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? options = null)
 {
     [McpServerTool(Name = "inspect_account", ReadOnly = true, OpenWorld = false)]
-    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, knowledge, research, savedBuilds, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. lootHistory group=true combines drops by player into bounded whispers using account names, with character fallback. known=false limits loot to confirmed uncollected pieces on the selected account; known=true selects collected pieces. Unknown collection mappings match neither filter. traits filters inventory or loot to selected ESO trait values; omit known to include collected items with the desired trait. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
+    [Description("Load fresh local account objects and persist them in SQLite. With no queries, list accounts. Batch queries for characters, summary, skills, inventory, equipment, champion, attributes, bars, statistics, effects, knowledge, research, savedBuilds, combatReports, lootHistory, sources or prices (pricing coverage). lootHistory exposes retained installation/server group drops; text matches items, sets or recipients; setIds filters catalog membership. Other-player item rows include whisper drafts with a copyable command and the exact observed item link. lootHistory group=true combines drops by player into bounded whispers using account names, with character fallback. known=false limits loot to confirmed uncollected pieces on the selected account; known=true selects collected pieces. Unknown collection mappings match neither filter. traits filters inventory or loot to selected ESO trait values; omit known to include collected items with the desired trait. savedBuilds accepts text to filter name/ID and includeDetails=true to return the typed build. Inventory includes TTC price matches and stack estimates; optional priceStatus filters Matched/NotListed/UnknownItem/NeedsMetadata/CatalogUnavailable, sort=stackPriceDesc or unitPriceDesc. Exact character name/ID; account key includes server. Default 20 rows, limit 1..100; fields projects selected row properties. Unfinished skills use recorded morph XP. Missing data remains unknown. offline=true explicitly uses stored snapshots.")]
     public string Inspect(string? account = null, AccountQuery[]? queries = null, bool offline = false) => ToolResult.Json(() =>
     {
         var read = workspace.Read(offline);
         if (queries is null || queries.Length == 0) return (object)new { Accounts = read.Data.Accounts.Select(a => new { a.Key, a.Name, a.Server, Characters = a.Characters.Count }), read.Data.Diagnostics };
         if (queries.Length > 20) throw new ArgumentException("At most 20 queries per request.");
         var selected = AccountWorkspace.Select(read, account);
-        return new { Account = selected.Key, selected.PriceSource, Results = queries.Select(q => Query(selected, q, read.Catalog, read.Enchanting)).ToArray(),
+        return new { Account = selected.Key, selected.PriceSource, Results = queries.Select(q => q.Section == "combatReports"
+            ? CombatReportQuery.Read(read.Data.CombatReports, q, q.Character is null ? null : selected.Character(q.Character).Name)
+            : Query(selected, q, read.Catalog, read.Enchanting)).ToArray(),
             Diagnostics = read.Data.Diagnostics.Concat(selected.Sources.SelectMany(s => s.Diagnostics)).Distinct().ToArray() };
     });
 
@@ -61,6 +63,10 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             "skills" => (NeedCharacter().Progress.Skills ?? []).Where(s => Text(s.Name) && (query.Ids is null || query.Ids.Contains(s.AbilityId))
                 && (!query.UnfinishedOnly || !s.IsPassive && !(s.Morph > 0 && s.Rank >= 4))).Cast<object>(),
             "skillLines" => (NeedCharacter().Progress.SkillLines ?? []).Where(s => Text(s.Key)).Select(s => (object)new { Name = s.Key, Rank = s.Value }),
+            "attributes" => [NeedCharacter().Build.Attributes],
+            "statistics" => NeedCharacter().RecordedStatistics is { } statistics ? [statistics] : [],
+            "effects" => NeedCharacter().RecordedEffects is { } effects ? [effects] : [],
+            "bars" => Bars(),
             "inventory" => Inventory(),
             "lootHistory" => LootHistory(),
             "prices" => [new { account.PriceSource, Stacks = account.Inventory.Count(),
@@ -85,6 +91,10 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
         {
             "skills" => NeedCharacter().Progress.Skills is not null,
             "skillLines" => NeedCharacter().Progress.SkillLines is not null,
+            "attributes" => NeedCharacter().Build.Sections.HasFlag(BuildSections.Attributes),
+            "statistics" => NeedCharacter().RecordedStatistics is not null,
+            "effects" => NeedCharacter().RecordedEffects is not null,
+            "bars" => NeedCharacter().Build.Sections.HasFlag(BuildSections.Bars),
             "knowledge" => query.Category is null ? NeedCharacter().Progress.Knowledge.Count > 0 : NeedCharacter().Progress.Knowledge.ContainsKey(query.Category),
             "equipment" => NeedCharacter().Build.Sections.HasFlag(BuildSections.Equipment),
             "champion" => NeedCharacter().Build.Sections.HasFlag(BuildSections.ChampionPoints),
@@ -108,6 +118,21 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 yield return new { progress.SetId, Name = name, progress.SlotMask, progress.CollectedCount,
                     progress.TotalCount, progress.Complete, progress.ReconstructionCrystals, progress.UnknownSlotMask,
                     Pieces = query.IncludeDetails ? progress.Pieces : null };
+            }
+        }
+
+        IEnumerable<object> Bars()
+        {
+            var bars = NeedCharacter().Build.Bars;
+            foreach (var (name, slots) in new[] { ("front", bars.Front), ("back", bars.Back), ("overload", bars.Overload) })
+            {
+                if (slots is null) continue;
+                for (var i = 0; i < slots.Length; i++)
+                {
+                    var id = slots[i]; var definition = id.HasValue ? catalog?.Skills.GetValueOrDefault(id.Value) : null;
+                    if (!Text(definition?.Name)) continue;
+                    yield return new { Bar = name, Slot = i + 1, AbilityId = id, Name = definition?.Name };
+                }
             }
         }
 

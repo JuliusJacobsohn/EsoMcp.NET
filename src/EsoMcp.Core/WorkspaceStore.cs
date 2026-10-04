@@ -18,6 +18,7 @@ public sealed partial class WorkspaceStore
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS account_documents(account_key TEXT PRIMARY KEY, refreshed_at TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS price_catalogs(region TEXT PRIMARY KEY, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS combat_reports(source_key TEXT PRIMARY KEY, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS build_plans(plan_id TEXT PRIMARY KEY, account_key TEXT NOT NULL, character_id TEXT NOT NULL,
                 name TEXT NOT NULL, revision INTEGER NOT NULL, document TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS plans_character ON build_plans(account_key,character_id);

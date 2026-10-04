@@ -32,11 +32,13 @@ public sealed class AccountWorkspace(WorkspaceStore store, Database definitions,
             var accounts = store.Accounts().ToList();
             foreach (var market in prices)
                 foreach (var account in accounts.Where(a => AccountLoader.NormalizeServer(a.Server) == market.Source.Region)) market.Associate(account);
-            return new(new() { Accounts = accounts, Diagnostics = ["Explicit offline mode: using last stored account documents."] }, catalog, prices, enchanting);
+            return new(new() { Accounts = accounts, CombatReports = store.CombatReports().ToList(),
+                Diagnostics = ["Explicit offline mode: using last stored account documents."] }, catalog, prices, enchanting);
         }
         if (options.Locations.Count == 0) throw new InvalidOperationException("No source locations configured. Use explicit offline mode to query stored snapshots.");
         var data = AccountLoader.Load(options.Locations.Select(l => new AccountInput(l.SavedVariablesPath, l.DefaultServer)), catalog, prices);
         store.SaveAccounts(data.Accounts);
+        store.SaveCombatReports(data.CombatReports);
         return new(data, catalog, prices, enchanting);
     }
     public IReadOnlyList<PriceCatalog> ReadPrices(bool offline = false)

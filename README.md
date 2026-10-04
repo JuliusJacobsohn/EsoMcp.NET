@@ -35,6 +35,11 @@ These integrations are needed only for their corresponding features:
 | [Dolgubon's Lazy Set Crafter](https://www.esoui.com/downloads/info1697-DolgubonsLazySetCrafter.html) | Read existing crafting queues and apply generated crafting imports in game |
 | [Tamriel Trade Centre](https://www.esoui.com/downloads/info1245-TamrielTradeCentre.html) | Local EU/NA price lookup; run the TTC client to keep its price tables current |
 | [Loot Log](https://www.esoui.com/downloads/info1455-LootLog.html) | Retained group drops, with recipient account/character and time |
+| Combat Metrics | Saved fight summaries: character, time, duration, outgoing/incoming DPS and HPS |
+
+`inspect_account` supports character sections `attributes`, `bars`, `statistics` and `effects`. Effects retain the observed active buff names/IDs and the last recorded meal separately; the last meal alone does not prove its buff is active. Observations are the last addon scan saved to disk.
+
+Use `section:"combatReports"` for saved Combat Metrics fights, newest first. Optional `character` filters the recorded name, and `text` searches labels, locations and names. Reports remain installation-wide: their format does not identify an account or server. Sources include file modification times and saved-fight counts. An installed source with zero fights differs from an unavailable source. Save a fight in CMX before `/reloadui`; unsaved recent fights exist only in game memory. This integration reads persisted summaries, not encoded ability/rotation details. Reports are retained in SQLite for explicit offline queries.
 
 Enable character-data collection in uespLog with `/uesplog on`. Log in to every character that should be represented, visit relevant storage such as the bank, then use `/reloadui` or log out normally so ESO writes the latest observations to disk. Missing providers do not stop the server, but their data and related features will be unavailable.
 
