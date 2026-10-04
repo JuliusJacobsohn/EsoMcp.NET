@@ -144,11 +144,13 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
             foreach (var entry in account.LootHistory?.Events ?? [])
             {
                 var definition = entry.ItemId is long id ? catalog?.Items.GetValueOrDefault(id) : null;
+                var observedTrait = EsoData.Items.ItemLink.TryParse(entry.Link, out var itemLink)
+                    ? itemLink!.ResolveTrait(definition?.Trait) : definition?.Trait;
                 var setName = definition?.SetId is long setId ? catalog?.Sets.GetValueOrDefault(setId)?.Names.GetValueOrDefault("en") : null;
                 var collected = entry.ItemId is long collectionId && catalog is not null
                     ? CollectionPieceLookup.IsCollected(collectionId, catalog, account.SetCollections) : null;
                 if (query.Known is not null && collected != query.Known) continue;
-                if (query.Traits is not null && (definition?.Trait is not int trait || !query.Traits.Contains(trait))) continue;
+                if (query.Traits is not null && (observedTrait is not int trait || !query.Traits.Contains(trait))) continue;
                 if (query.Ids is not null && (entry.ItemId is not long itemId || !query.Ids.Contains(itemId))) continue;
                 if (query.SetIds is not null && (definition?.SetId is not long set || !query.SetIds.Contains(set))) continue;
                 if (character is not null && (!string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
@@ -156,7 +158,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 if (!Text(definition?.Name) && !Text(setName) && !Text(entry.RecipientAccount) && !Text(entry.RecipientCharacter)) continue;
                 var row = new { entry.Server, entry.ReceivedAt, entry.RecipientAccount, entry.RecipientCharacter,
                     entry.Quantity, entry.ItemId, Name = definition?.Name, definition?.SetId, SetName = setName,
-                    definition?.Trait, definition?.WeaponType, definition?.ArmorType, definition?.EquipType,
+                    Trait = observedTrait, definition?.WeaponType, definition?.ArmorType, definition?.EquipType,
                     entry.Personal, entry.Notable, entry.SetItem, entry.Link, Collected = collected,
                     Whisper = string.Equals(entry.RecipientAccount, account.Name, StringComparison.OrdinalIgnoreCase)
                         ? null : LootWhisper.Create(entry, definition?.Name),

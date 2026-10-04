@@ -1,5 +1,7 @@
 # EsoMcp.NET
 
+Inventory, equipment and loot trait queries honor the chosen trait in transmuted/reconstructed item links before catalog defaults. Account refresh also replaces previously stored default traits; saved build plans remain untouched.
+
 [![CI](https://github.com/JuliusJacobsohn/EsoMcp.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliusJacobsohn/EsoMcp.NET/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/JuliusJacobsohn/EsoMcp.NET)](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
