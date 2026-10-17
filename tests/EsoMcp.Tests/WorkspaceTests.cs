@@ -10,6 +10,33 @@ namespace EsoMcp.Tests;
 public class WorkspaceTests
 {
     [Fact]
+    public void MasterySwapExportsWithoutChargingOrdinarySkillPointsOrDroppingOtherPassives()
+    {
+        using var w = new TestWorkspace(); var store = new WorkspaceStore(w.Database.Path);
+        var catalog = new EsoData.Catalogs.GameCatalog();
+        foreach (var id in new long[] { 1, 2, 3 })
+            catalog.Skills[id] = new(id, BaseAbilityId: id, Rank: 1, IsPassive: true, IsMastery: true);
+        catalog.Skills[99] = new(99, BaseAbilityId: 99, Rank: 20, IsPassive: true);
+        var catalogPath = Path.Combine(w.Folder, "definitions.json"); catalog.Write(catalogPath);
+        store.SaveAccounts([new() { Name = "@Example", Server = "EU", Characters = [new()
+        {
+            Id = "1", Name = "Example", Progress = new() { TotalSkillPoints = 10, UnspentSkillPoints = 2 },
+            Build = new() { Sections = BuildSections.Skills, Skills =
+                { [1] = new() { IsPassive = true }, [2] = new() { IsPassive = true }, [99] = new() { IsPassive = true, Rank = 20 } } }
+        }] }]);
+        var tools = new BuildTools(new(store, w.Database, new() { CatalogPaths = [catalogPath] }, offlineDefault: true), store);
+        var created = JsonDocument.Parse(tools.Edit("create", character: "Example", patch: new()
+            { Skills = new() { ["2"] = null, ["3"] = new() { IsPassive = true } } }));
+        var idValue = created.RootElement.GetProperty("plan").GetProperty("id").GetString()!;
+        var exported = JsonDocument.Parse(tools.Export(idValue));
+        Assert.True(exported.RootElement.GetProperty("validation").GetProperty("valid").GetBoolean());
+        var skills = EsoData.Formats.CspsBuild.Parse(exported.RootElement.GetProperty("text").GetString()!).Skills!;
+        Assert.Contains(skills.Passive, p => p.AbilityId == 3);
+        Assert.Contains(skills.Passive, p => p.AbilityId == 99 && p.Rank == 20);
+        Assert.DoesNotContain(skills.Passive, p => p.AbilityId == 2);
+    }
+
+    [Fact]
     public void GuideTargetPersistsWithoutCopyingOrExportingCurrentAllocation()
     {
         using var w = new TestWorkspace(); var store = new WorkspaceStore(w.Database.Path);
