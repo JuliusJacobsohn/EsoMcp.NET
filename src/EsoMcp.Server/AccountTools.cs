@@ -161,6 +161,7 @@ public sealed class AccountTools(AccountWorkspace workspace, ImportOptions? opti
                 PricedStacks = g.Count(i => i.EstimatedStackPrice.HasValue),
                 PricedStackEstimate = g.Any(i => i.EstimatedStackPrice.HasValue) ? g.Sum(i => i.EstimatedStackPrice ?? 0) : (decimal?)null });
             return items.Select(i => (object)new { i.Reference, i.ItemId, i.Name, i.Count, i.Location, i.CharacterId, i.Quality, i.SetId, i.Trait, i.ArmorType, i.WeaponType,
+                i.RequiredLevel, i.RequiredChampionPoints, Link = query.IncludeDetails ? i.Link : null,
                 i.Price, i.EstimatedStackPrice, Enchantment = query.IncludeDetails && catalog is not null ? enchanting?.Observe(i, catalog) : null });
         }
         IEnumerable<object> LootHistory()

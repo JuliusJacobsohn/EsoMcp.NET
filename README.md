@@ -113,6 +113,8 @@ Names must resolve unambiguously. IDs are also accepted. Query results have coun
 
 ### Existing gear and gold glyphs
 
+Inventory rows expose `requiredLevel` and `requiredChampionPoints`, decoded from each item's link variant (including CP160 quest rewards). Unknown variants return null. `includeDetails:true` also exposes the exact `link` for inspection and sharing; all three fields support projection.
+
 Use `inspect_account` inventory queries with `includeDetails:true` to inspect the observed enchant effect and quality. Applied glyphs take precedence over the built-in enchant; built-in effects require refreshed item metadata. `refresh_catalog` accepts `itemIds` for precise metadata refreshes. Missing definitions remain unknown.
 
 Resolve `kind:"glyphs"` through `resolve_definitions`, using the installed **LibLazyCrafting** rune tables. Save glyph orders in a plan's `crafting` list, then call `export_build` with `format:"enchanting"`. It returns exact rune requirements, account-wide stock/shortages and pasteable ESO chat commands. Paste each line once on the crafter, visit an enchanting station, then apply the loose glyphs manually. Finish before reload/logout because the queue is held in game memory. Lazy Set Crafter's **Import Links** rejects standalone glyphs; `format:"crafting"` rejects known glyph orders to prevent unusable imports. Existing dropped gear must be upgraded through the in-game improvement UI.

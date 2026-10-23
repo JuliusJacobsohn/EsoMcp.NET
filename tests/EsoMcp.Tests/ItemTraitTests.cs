@@ -35,11 +35,16 @@ public class ItemTraitTests
         var inventory = result.RootElement.GetProperty("results")[0];
         Assert.Equal(1, inventory.GetProperty("total").GetInt32());
         Assert.Equal(chosen, inventory.GetProperty("rows")[0].GetProperty("trait").GetInt32());
+        Assert.Equal(50, inventory.GetProperty("rows")[0].GetProperty("requiredLevel").GetInt32());
+        Assert.Equal(160, inventory.GetProperty("rows")[0].GetProperty("requiredChampionPoints").GetInt32());
         var equipment = result.RootElement.GetProperty("results")[1].GetProperty("rows")[0].GetProperty("item");
         Assert.Equal(chosen, equipment.GetProperty("trait").GetInt32());
         Assert.Equal(900001, equipment.GetProperty("itemId").GetInt64());
         var saved = store.Accounts().Single();
         Assert.Equal(chosen, saved.Inventory.Single().Trait);
+        using var details = JsonDocument.Parse(tools.Inspect(queries:
+            [new() { Section = "inventory", IncludeDetails = true, Fields = ["link", "requiredChampionPoints"] }]));
+        Assert.Equal(link, details.RootElement.GetProperty("results")[0].GetProperty("rows")[0].GetProperty("link").GetString());
         saved.LootHistory = new() { Events = [new("EU", DateTimeOffset.UnixEpoch, link, 1,
             "@Friend", "Friend", 15, 900001, false, true, true)] };
         store.SaveAccounts([saved]);
