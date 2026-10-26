@@ -14,7 +14,7 @@ public sealed class AddonToolTests
         var saves = Path.Combine(test.Folder, "SavedVariables");
         Directory.CreateDirectory(Path.Combine(addons, "IIfA"));
         Directory.CreateDirectory(saves);
-        File.WriteAllText(Path.Combine(addons, "IIfA", "IIfA.txt"), "## Version: test");
+        File.WriteAllText(Path.Combine(addons, "IIfA", "IIfA.addon"), "## Version: test");
         File.WriteAllText(Path.Combine(saves, "IIfA.lua"), "not valid Lua");
         var tool = new AddonTools(new ImportOptions { Locations = [new(saves, addons), new(Path.Combine(test.Folder, "other"))] });
         using var json = JsonDocument.Parse(tool.Inspect());
