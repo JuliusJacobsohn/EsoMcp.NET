@@ -1,3 +1,10 @@
+$ErrorActionPreference = 'Stop'
+$solution = Join-Path $PSScriptRoot '../EsoMcp.sln'
+
+# Prefer the published NuGet package; GitHub assets are only an indexing-delay fallback.
+dotnet restore $solution
+if ($LASTEXITCODE -eq 0) { return }
+
 $project = [xml](Get-Content (Join-Path $PSScriptRoot '../src/EsoMcp.Core/EsoMcp.Core.csproj') -Raw)
 $reference = $project.Project.ItemGroup.PackageReference | Where-Object Include -eq 'EsoData.NET'
 $version = $reference.Version
@@ -22,5 +29,5 @@ $feedUri = [System.Security.SecurityElement]::Escape((Resolve-Path $feed).Path)
 </configuration>
 "@ | Set-Content -LiteralPath $configPath -Encoding utf8
 
-dotnet restore (Join-Path $PSScriptRoot '../EsoMcp.sln') --configfile $configPath
+dotnet restore $solution --configfile $configPath
 if ($LASTEXITCODE -ne 0) { throw 'dotnet restore failed.' }

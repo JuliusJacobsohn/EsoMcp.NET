@@ -10,7 +10,7 @@ dotnet run --project samples/EsoMcp.Smoke -c Release
 
 The smoke program uses the official .NET MCP client against the real stdio server. It verifies discovery, account reads, draft mutation, stale-write rejection, export, comparison and persistence across server restarts. Its default fixture is synthetic. Add `-- <server.dll> --live` to exercise local game data; it creates and deletes only its own temporary verification draft and never changes game files. `--request FILE` executes one explicit JSON `{tool,arguments}` request for integration diagnostics.
 
-For simultaneous library/server development with sibling repositories, `-p:UseLocalEsoData=true` references the local library. Releases and CI use the published NuGet package. Windows and Ubuntu CI run tests and the .NET protocol smoke check.
+For simultaneous library/server development with sibling repositories, `-p:UseLocalEsoData=true` references the local library. Releases and CI use the published NuGet package. Windows and Ubuntu CI run tests and the .NET protocol smoke check. Dependency restore uses NuGet first and falls back to the library's GitHub release asset if the package is not yet indexed. Publish the library before updating the MCP dependency so a fresh CI runner can restore it.
 
 ## Releases
 
