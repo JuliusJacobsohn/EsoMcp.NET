@@ -32,10 +32,12 @@ No automatic write-back to SavedVariables. No game actions, mail or purchases ar
 
 ## Small tool surface
 
-These seven tools are registered by the server. See the [tool usage guide](usage.md) for their implemented parameters and supported analysis sections.
+These tools are registered by the server. See the [tool usage guide](usage.md) for their implemented parameters and supported analysis sections.
 
 | Tool | Operation |
 |---|---|
+| `inspect_addons` | Inspect local addon manifests, required dependencies and saved-file availability without loading an account. |
+| `query_prices` | Search the complete locally downloaded TTC market catalog. |
 | `inspect_account` | Discover/select an account, summarize it, or query typed collections with filters, selected fields and grouped counts. Batch independent queries in one request. |
 | `resolve_definitions` | Resolve many skill/set/item names or IDs with requested fields. Return ambiguity candidates or missing metadata, not giant catalog rows. |
 | `edit_build` | Create, copy, list, remove or edit a named draft. Batch typed edits to skills, bars, CP, equipment, consumables and goals; return revision, changed fields and budget summary. |

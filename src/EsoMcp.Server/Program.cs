@@ -29,7 +29,7 @@ try
     builder.Services.AddSingleton(options);
     builder.Services.AddSingleton<ICraftingCatalog, CraftingCatalogService>();
     builder.Services.AddSingleton<ISkillCatalog, SkillCatalogService>();
-    builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<AccountTools>().WithTools<BuildTools>().WithTools<CatalogTools>().WithTools<PriceTools>();
+    builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<AccountTools>().WithTools<BuildTools>().WithTools<CatalogTools>().WithTools<PriceTools>().WithTools<AddonTools>();
     await builder.Build().RunAsync();
     return 0;
 }

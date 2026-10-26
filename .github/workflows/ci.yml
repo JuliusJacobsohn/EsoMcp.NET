@@ -22,7 +22,7 @@ jobs:
       - run: dotnet build EsoMcp.sln -c Release --no-restore
       - run: dotnet test EsoMcp.sln -c Release --no-build
       - run: dotnet run --project samples/EsoMcp.Smoke -c Release
-      - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false
+      - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false -p:DebugType=None -p:DebugSymbols=false -p:CopyOutputSymbolsToPublishDirectory=false
       - uses: actions/upload-artifact@v7
         if: matrix.os == 'ubuntu-latest'
         with:

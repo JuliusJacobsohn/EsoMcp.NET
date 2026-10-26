@@ -14,6 +14,6 @@ For simultaneous library/server development with sibling repositories, `-p:UseLo
 
 ## Releases
 
-Update `Directory.Build.props` with a new server version and use the intended published EsoData.NET version in `src/EsoMcp.Core/EsoMcp.Core.csproj`. Commit and push, wait for CI to pass, then create and push a matching `v<version>` tag. The Release workflow builds, tests, runs the protocol smoke check and publishes `eso-mcp-portable.zip` on GitHub. The archive includes the README, setup and usage documentation, and example configuration.
+Update `Directory.Build.props` with a new server version and use the intended published EsoData.NET version in `src/EsoMcp.Core/EsoMcp.Core.csproj`. Commit and push, wait for CI to pass, then create and push a matching `v<version>` tag. The Release workflow builds, tests, runs the protocol smoke check and publishes `eso-mcp-portable.zip` on GitHub. The archive includes the README, setup and usage documentation, and example configuration at the top level. The framework-dependent DLL and its required runtime files are under `server/`; PDB debugging symbols are excluded. Launch it with `dotnet server/eso-mcp.dll`.
 
 Never move a published tag; create a new version for a new release.

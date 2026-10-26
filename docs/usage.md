@@ -2,6 +2,16 @@
 
 [Project overview and quick start](../README.md) · [Setup and configuration](setup.md).
 
+## Check addon installation
+
+Call `inspect_addons` with no arguments to inspect every configured installation. This works without an account, catalog or valid saved-data parser input. You can override the paths, for example:
+
+```json
+{"addonsPath":"C:/Users/YOUR_USER/Documents/Elder Scrolls Online/live/AddOns","savedVariablesPath":"C:/Users/YOUR_USER/Documents/Elder Scrolls Online/live/SavedVariables"}
+```
+
+See [setup diagnostics](setup.md#checking-installed-addons) for interpreting installation, dependency and saved-file results. The check always reads the local filesystem, including when the account tools use offline mode.
+
 ## Inventory traits
 
 Inventory, equipment and loot trait queries honor the chosen trait in transmuted/reconstructed item links before catalog defaults. Account refresh also replaces previously stored default traits; saved build plans remain untouched.
@@ -54,6 +64,7 @@ Use `sort:"unitPriceDesc"` to rank by price per item instead. Both sorts work wi
 
 | Tool | Purpose |
 |---|---|
+| `inspect_addons` | Find supported local addon installations, check required dependencies and locate saved files |
 | `query_prices` | Search all local TTC variants independently of account ownership |
 | `inspect_account` | Discover accounts or batch compact queries for characters, budgets, skills, inventory, equipment, knowledge, research, collections, saved builds (optional typed details) and source coverage |
 | `resolve_definitions` | Batch name/ID searches in local skill, set, item or champion catalogs; CP names fall back to installed CSPS data |

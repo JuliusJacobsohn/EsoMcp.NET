@@ -34,7 +34,7 @@ try
     await using (var client = await Connect())
     {
         var tools = await client.ListToolsAsync();
-        foreach (var name in new[] { "inspect_account", "edit_build", "analyze_build", "export_build", "verify_build", "resolve_definitions", "refresh_catalog", "query_prices" })
+        foreach (var name in new[] { "inspect_addons", "inspect_account", "edit_build", "analyze_build", "export_build", "verify_build", "resolve_definitions", "refresh_catalog", "query_prices" })
             if (!tools.Any(t => t.Name == name)) throw new InvalidOperationException($"Missing tool {name}.");
         var requestIndex = Array.IndexOf(args, "--request");
         if (requestIndex >= 0)
@@ -44,6 +44,8 @@ try
             var response = await Call(client, request.GetProperty("tool").GetString()!, parameters);
             Console.WriteLine(response.GetRawText()); return 0;
         }
+        var addons = await Call(client, "inspect_addons");
+        if (addons.GetProperty("locations").GetArrayLength() == 0) throw new InvalidOperationException("No installation report returned.");
         var discovery = await Call(client, "inspect_account");
         var account = discovery.GetProperty("accounts")[0].GetProperty("key").GetString()!;
         var listed = await Call(client, "inspect_account", new() { ["account"] = account, ["queries"] = new[] { new { section = "characters" } } });
@@ -83,7 +85,7 @@ try
         await Call(restarted, "edit_build", new() { ["action"] = "delete", ["id"] = planId, ["expectedRevision"] = 1 });
         planId = null;
     }
-    Console.WriteLine("PASS: discovery, fresh reads, atomic editing, conflict protection, export, comparison, restart persistence and complete guide-target serialization.");
+    Console.WriteLine("PASS: addon inspection, discovery, fresh reads, atomic editing, conflict protection, export, comparison, restart persistence and complete guide-target serialization.");
     return 0;
 }
 finally

@@ -38,7 +38,7 @@ Enable character-data collection in uespLog with `/uesplog on`. Log in to every 
 4. Register the server:
 
 ```powershell
-codex mcp add eso -- dotnet C:/Tools/EsoMcp/eso-mcp.dll --config C:/Tools/EsoMcp/settings.json
+codex mcp add eso -- dotnet C:/Tools/EsoMcp/server/eso-mcp.dll --config C:/Tools/EsoMcp/settings.json
 ```
 
 Other clients use the equivalent stdio command and arguments. Without a configuration file, Windows uses Documents/Elder Scrolls Online/live and `%LOCALAPPDATA%/EsoMcp/data.db`. On other systems, provide local source paths. Save in ESO with `/reloadui` or logout after visiting relevant characters/storage. Files contain the last saved observations, not live game memory.
@@ -71,3 +71,11 @@ CLI options:
 --status               Inspect persisted account/plan summaries
 --help                 Full help
 ```
+
+## Checking installed addons
+
+Ask your client to call `inspect_addons` before loading an account. It uses the configured directories and can run even when no account data can be loaded. It reports supported addon manifests and versions, missing or outdated required dependencies, and the separate presence and modification times of saved files. Optional `addonsPath` and `savedVariablesPath` inspect another installation; supplying only one infers the sibling folder.
+
+An addon manifest proves it was found on disk, not that it is enabled or loaded in ESO. Old saved files can remain after uninstalling an addon. An installed addon without a save may need to be enabled, observed in game and saved with `/reloadui`. Access errors produce diagnostics and unknown statuses rather than a confirmed absence. The check reads manifest text and file metadata, never account data or Lua code. TTC price-table availability is reported by price queries; installation alone does not establish that its updater has downloaded prices.
+
+The portable download keeps the runtime dependencies in `server/`; launch `server/eso-mcp.dll` with `dotnet`. Its dependency DLLs and runtime configuration are required. Debug symbols are excluded from the archive.

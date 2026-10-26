@@ -26,13 +26,19 @@ jobs:
       - run: dotnet build EsoMcp.sln -c Release --no-restore
       - run: dotnet test EsoMcp.sln -c Release --no-build
       - run: dotnet run --project samples/EsoMcp.Smoke -c Release
-      - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false
+      - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false -p:DebugType=None -p:DebugSymbols=false -p:CopyOutputSymbolsToPublishDirectory=false
       - name: Bundle portable server
         shell: bash
         run: |
-          cp README.md LICENSE settings.example.json artifacts/server/
-          cp -r docs artifacts/server/docs
-          cd artifacts/server
+          mkdir -p artifacts/bundle/server
+          cp -r artifacts/server/. artifacts/bundle/server/
+          cp README.md LICENSE settings.example.json artifacts/bundle/
+          cp -r docs artifacts/bundle/docs
+          if find artifacts/bundle/server -name "*.pdb" | grep -q .; then
+            echo "Debug symbols must not ship in the release archive." >&2
+            exit 1
+          fi
+          cd artifacts/bundle
           zip -r ../eso-mcp-portable.zip .
       - name: Publish GitHub release
         env:
