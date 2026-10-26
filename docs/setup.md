@@ -5,7 +5,7 @@
 ## Requirements
 
 - **ESO for PC/Mac.** Console editions cannot run the required addons.
-- The [.NET 10 Runtime or SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+- The Windows x64 standalone download includes .NET. The portable DLL download requires the [.NET 10 Runtime or SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 - [Minion](https://minion.mmoui.com/) to install and update the ESO addons below. Install any dependency libraries Minion reports for them as well.
 
 Install and enable these addons for complete account and build data:
@@ -32,16 +32,18 @@ Enable character-data collection in uespLog with `/uesplog on`. Log in to every 
 
 ## Install
 
-1. Install the .NET 10 runtime or SDK.
-2. Download and extract `eso-mcp-portable.zip` from [Releases](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases). Keep its files together.
+1. Download and extract `eso-mcp-win-x64.zip` from [Releases](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases/latest) on Windows x64. Its single executable includes .NET and the native SQLite dependency.
+2. Keep the included documentation and settings example for reference. No separate runtime installation is required.
 3. Copy `settings.example.json` to `settings.json` and configure source directories if the Windows defaults are unsuitable.
 4. Register the server:
 
 ```powershell
-codex mcp add eso -- dotnet C:/Tools/EsoMcp/server/eso-mcp.dll --config C:/Tools/EsoMcp/settings.json
+codex mcp add eso -- C:/Tools/EsoMcp/eso-mcp.exe --config C:/Tools/EsoMcp/settings.json
 ```
 
 Other clients use the equivalent stdio command and arguments. Without a configuration file, Windows uses Documents/Elder Scrolls Online/live and `%LOCALAPPDATA%/EsoMcp/data.db`. On other systems, provide local source paths. Save in ESO with `/reloadui` or logout after visiting relevant characters/storage. Files contain the last saved observations, not live game memory.
+
+For macOS/Linux or DLL-based startup, install the .NET 10 runtime and use `eso-mcp-portable.zip`. Keep its runtime files together and register command `dotnet`, followed by the absolute path to `server/eso-mcp.dll` and any configuration arguments.
 
 Existing MCP sessions may retain their old process/tool schemas; reconnect the server or start a new session after upgrading. The server logs to stderr and reserves stdout for MCP messages.
 
@@ -78,4 +80,7 @@ Ask your client to call `inspect_addons` before loading an account. It uses the 
 
 An addon manifest proves it was found on disk, not that it is enabled or loaded in ESO. Old saved files can remain after uninstalling an addon. An installed addon without a save may need to be enabled, observed in game and saved with `/reloadui`. Access errors produce diagnostics and unknown statuses rather than a confirmed absence. The check reads manifest text and file metadata, never account data or Lua code. TTC price-table availability is reported by price queries; installation alone does not establish that its updater has downloaded prices.
 
-The portable download keeps the runtime dependencies in `server/`; launch `server/eso-mcp.dll` with `dotnet`. Its dependency DLLs and runtime configuration are required. Debug symbols are excluded from the archive.
+## Release downloads
+
+- `eso-mcp-win-x64.zip`: a standalone Windows x64 `eso-mcp.exe`, plus documentation and an example configuration. Launch the executable directly. .NET and native libraries are bundled; native libraries are extracted by .NET when needed. No PDBs or loose dependency DLLs are shipped.
+- `eso-mcp-portable.zip`: the framework-dependent DLL and its runtime dependencies under `server/`. Launch `server/eso-mcp.dll` with `dotnet`. Its dependency DLLs and runtime configuration are required. Debug symbols are excluded.

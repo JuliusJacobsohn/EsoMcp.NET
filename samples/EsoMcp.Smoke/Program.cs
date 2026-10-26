@@ -3,11 +3,13 @@ using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
-var dll = Path.GetFullPath(args.ElementAtOrDefault(0) ?? "src/EsoMcp.Server/bin/Release/net10.0/eso-mcp.dll");
+var server = Path.GetFullPath(args.ElementAtOrDefault(0) ?? "src/EsoMcp.Server/bin/Release/net10.0/eso-mcp.dll");
+var isDll = Path.GetExtension(server).Equals(".dll", StringComparison.OrdinalIgnoreCase);
+var command = isDll ? "dotnet" : server;
 var live = args.Contains("--live");
 var root = Path.Combine(Path.GetTempPath(), "EsoMcp.Smoke", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
-var arguments = new List<string> { dll };
+var arguments = isDll ? new List<string> { server } : [];
 if (!live)
 {
     File.WriteAllText(Path.Combine(root, "uespLog.lua"), """
@@ -18,7 +20,7 @@ if (!live)
     arguments.AddRange(["--database", Path.Combine(root, "test.db"), "--saved-variables", root]);
 }
 async Task<McpClient> Connect() => await McpClient.CreateAsync(new StdioClientTransport(new()
-    { Name = "ESO protocol verification", Command = "dotnet", Arguments = arguments }));
+    { Name = "ESO protocol verification", Command = command, Arguments = arguments }));
 async Task<JsonElement> Call(McpClient client, string tool, Dictionary<string, object?>? parameters = null, bool error = false)
 {
     var timer = Stopwatch.StartNew();

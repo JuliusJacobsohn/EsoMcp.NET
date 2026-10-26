@@ -23,6 +23,23 @@ jobs:
       - run: dotnet test EsoMcp.sln -c Release --no-build
       - run: dotnet run --project samples/EsoMcp.Smoke -c Release
       - run: dotnet publish src/EsoMcp.Server -c Release --no-restore -o artifacts/server -p:UseAppHost=false -p:DebugType=None -p:DebugSymbols=false -p:CopyOutputSymbolsToPublishDirectory=false
+      - name: Publish Windows standalone executable
+        if: runner.os == 'Windows'
+        run: dotnet publish src/EsoMcp.Server -c Release -p:PublishProfile=Standalone -o artifacts/standalone
+      - name: Verify Windows standalone executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem artifacts/standalone -File -Recurse)
+          if ($files.Count -ne 1 -or $files[0].Name -ne 'eso-mcp.exe') {
+            throw 'Standalone publish must produce only eso-mcp.exe.'
+          }
+          dotnet run --project samples/EsoMcp.Smoke -c Release -- artifacts/standalone/eso-mcp.exe
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Windows'
+        with:
+          name: eso-mcp-win-x64
+          path: artifacts/standalone/
       - uses: actions/upload-artifact@v7
         if: matrix.os == 'ubuntu-latest'
         with:

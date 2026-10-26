@@ -1,3 +1,5 @@
+![EsoMcp.NET logo](https://raw.githubusercontent.com/JuliusJacobsohn/EsoMcp.NET/main/assets/logo.svg)
+
 # EsoMcp.NET
 
 [![CI](https://github.com/JuliusJacobsohn/EsoMcp.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliusJacobsohn/EsoMcp.NET/actions/workflows/ci.yml)
@@ -14,6 +16,7 @@ Let your AI assistant help with your characters, gear and builds in [The Elder S
 
 Ask your assistant things like:
 
+- “I found this cool [Hyperioxes Dragonknight tank build](https://hyperioxes.com/eso/tank/dragonknight-build). Give me a to-do list of everything I'm missing to complete it.”
 - “Check whether my ESO addons are installed and where their saved data is.”
 - “Find this set across all my characters and the bank.”
 - “Compare this build with my character. Which gear and skills am I missing?”
@@ -33,22 +36,24 @@ Available answers depend on the addons and game definitions you have. Account da
 
 ## Quick install
 
-You need ESO on **PC/Mac**, the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0), and an AI client that supports local MCP servers.
+You need ESO on **PC/Mac** and an AI client that supports local MCP servers. The **Windows standalone executable includes .NET**, so you do not need to install a runtime separately.
 
 1. Install **Inventory Insight** for inventory and **uespLog** for character/build data. The [addon list](#addons) links to these and the optional integrations. [Minion](https://minion.mmoui.com/) can help manage them; install their dependency libraries too.
 2. Enable the addons in ESO. Enable uespLog's character collection with `/uesplog on`. Log in to the characters you want to inspect, open the bank and relevant storage, then use `/reloadui` or log out normally.
-3. Download **`eso-mcp-portable.zip`** from the [latest release](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases/latest) and extract it, for example to `C:/Tools/EsoMcp`.
-4. Add it to your AI client's MCP settings: command **`dotnet`**, argument **`C:/Tools/EsoMcp/server/eso-mcp.dll`**. Use your actual extraction path.
+3. On Windows x64, download **`eso-mcp-win-x64.zip`** from the [latest release](https://github.com/JuliusJacobsohn/EsoMcp.NET/releases/latest) and extract it, for example to `C:/Tools/EsoMcp`.
+4. Add it to your AI client's MCP settings: command **`C:/Tools/EsoMcp/eso-mcp.exe`**, with no arguments required. Use your actual extraction path.
 
 For Codex CLI, step 4 is:
 
 ```powershell
-codex mcp add eso -- dotnet C:/Tools/EsoMcp/server/eso-mcp.dll
+codex mcp add eso -- C:/Tools/EsoMcp/eso-mcp.exe
 ```
 
 On Windows, the usual ESO folders are found automatically under `Documents/Elder Scrolls Online/live`: `SavedVariables` for saved data and `AddOns` for installed addons. This also follows redirected Windows Documents folders. The database is stored at `%LOCALAPPDATA%/EsoMcp/data.db`.
 
-For macOS or another installation location, copy the included `settings.example.json`, replace its example paths, and add `--config` followed by the absolute path to your settings file. See the [setup guide](docs/setup.md#configuration) for details. Reconnect your AI client after installing or upgrading, then try:
+For macOS/Linux, use **`eso-mcp-portable.zip`** and the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0). Register command `dotnet` with the absolute path to `server/eso-mcp.dll` as its argument.
+
+For another installation location or a non-Windows system, copy the included `settings.example.json`, replace its example paths, and add `--config` followed by the absolute path to your settings file. See the [setup guide](docs/setup.md#configuration) for details. Reconnect your AI client after installing or upgrading, then try:
 
 > Check my ESO addon installation, then show my accounts and characters.
 
