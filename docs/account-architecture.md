@@ -1,6 +1,6 @@
 # MCP as an account and build workspace
 
-Architecture, 2026-09-25, implemented in 1.1.0. The current public tool contract and source limitations are documented in the README; this document also captures broader domain intent. The design follows the [account-first library](https://github.com/JuliusJacobsohn/EsoData.NET/blob/main/docs/account-architecture.md).
+Architecture, 2026-09-25, implemented in 1.1.0. The current public tool contract and source limitations are documented in the [tool usage guide](usage.md); this document also captures broader domain intent. The design follows the [account-first library](https://github.com/JuliusJacobsohn/EsoData.NET/blob/main/docs/account-architecture.md).
 
 ## Purpose
 
@@ -32,7 +32,7 @@ No automatic write-back to SavedVariables. No game actions, mail or purchases ar
 
 ## Small tool surface
 
-These seven tools are registered by the server. See the README for their implemented parameters and supported analysis sections.
+These seven tools are registered by the server. See the [tool usage guide](usage.md) for their implemented parameters and supported analysis sections.
 
 | Tool | Operation |
 |---|---|

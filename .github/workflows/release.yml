@@ -31,6 +31,7 @@ jobs:
         shell: bash
         run: |
           cp README.md LICENSE settings.example.json artifacts/server/
+          cp -r docs artifacts/server/docs
           cd artifacts/server
           zip -r ../eso-mcp-portable.zip .
       - name: Publish GitHub release
